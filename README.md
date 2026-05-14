@@ -2,7 +2,7 @@
 
 <img src="https://img.shields.io/badge/Dict-Odia%20Dictionary-1565C0?style=for-the-badge&logo=bookstack&logoColor=white" alt="Dict"/>
 
-# 📖 Dict — Best Odia Dictionary
+# 📖 Best Odia Dictionary
 
 ### A multilingual offline dictionary & reader for English · ଓଡ଼ିଆ · हिंदी
 
