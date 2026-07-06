@@ -1,8 +1,7 @@
 {
-  "name": "Abhayattcc Dictionary & Reader",
-  "short_name": "Dictionary",
-  "description": "Offline Odia-English-Hindi Dictionary and Text Reader with TTS.",
-  "start_url": "./",
+  "name": "English Hindi Odia Picture Dictionary",
+  "short_name": "Picture Dictionary",
+  "description": "Offline English-Hindi-Odia-Picture-Dictionary with tts support",
   "display": "standalone",
   "background_color": "#fffde7",
   "theme_color": "#ff6f61",
