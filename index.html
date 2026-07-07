@@ -372,21 +372,6 @@ body[data-reader-theme="sepia"] { --topbar-bg:#ede3cc; --settings-bg:#e8dcc4; --
   position: absolute; inset: 0; z-index: 1;
   background: #fff;
 }
-/* When a cached preview is shown underneath the live iframe while it
-   loads, the preview fills the box and the live iframe fades in on top
-   once ready, avoiding any layout jump. */
-.gimg-panel-frame-wrap .gimg-instant-preview {
-  position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0;
-}
-/* Cached (offline) images are shown at full width with their NATURAL
-   aspect ratio (height:auto) rather than forced into the live panel's
-   fixed 360px box — a fixed box either crops the wide grid capture
-   (object-fit:cover) or letterboxes it (object-fit:contain). Letting
-   the box's own height follow the image means the entire captured
-   grid is visible, uncropped and unstretched, every time. */
-.gimg-panel-frame-wrap.gimg-cached { height: auto; overflow: visible; }
-.gimg-panel-frame-wrap.gimg-cached img { display: block; width: 100%; height: auto; object-fit: contain; background: #fafafa; }
-
 /* ── Custom word modal ── */
 #cw-overlay { display: none; position: fixed; inset: 0; z-index: 10005; background: rgba(0,0,0,0.55); align-items: flex-end; justify-content: center; }
 #cw-overlay.open { display: flex; }
@@ -398,11 +383,6 @@ body[data-reader-theme="sepia"] { --topbar-bg:#ede3cc; --settings-bg:#e8dcc4; --
 .cw-field label { display: block; font-size: 11px; font-weight: 700; color: #78909c; letter-spacing: 0.4px; text-transform: uppercase; margin-bottom: 4px; }
 .cw-field input[type=text], .cw-field textarea { width: 100%; padding: 9px 11px; border: 1px solid #ddd; border-radius: 10px; font-size: 15px; outline: none; font-family: 'Segoe UI', 'Noto Sans Odia', sans-serif; }
 .cw-field textarea { resize: none; height: 64px; line-height: 1.5; }
-#cw-img-row { display: flex; align-items: center; gap: 10px; }
-#cw-img-preview { width: 72px; height: 72px; border-radius: 10px; background: #f5f5f5; border: 1px dashed #ccc; object-fit: cover; display: none; }
-#cw-img-placeholder { width: 72px; height: 72px; border-radius: 10px; background: #f5f5f5; border: 1px dashed #ccc; display: flex; align-items: center; justify-content: center; font-size: 26px; color: #bbb; flex-shrink: 0; }
-#cw-pick-img-btn { padding: 8px 14px; border: none; border-radius: 16px; font-weight: 700; cursor: pointer; background: #6a1b9a; color: white; font-size: 13px; }
-#cw-remove-img-btn { padding: 8px 12px; border: none; border-radius: 16px; font-weight: 700; cursor: pointer; background: #eee; color: #b71c1c; font-size: 13px; display: none; }
 #cw-save-btn { margin-top: 6px; width: 100%; padding: 12px; border: none; border-radius: 24px; font-weight: 700; cursor: pointer; background: #2e7d32; color: white; font-size: 15px; }
 .cw-hint { font-size: 12px; color: #90a4ae; margin-top: 2px; }
 
@@ -509,17 +489,6 @@ body[data-reader-theme="sepia"] { --topbar-bg:#ede3cc; --settings-bg:#e8dcc4; --
     <div class="cw-field">
       <label>Meaning / Notes</label>
       <textarea id="cw-meaning" placeholder="Meaning, example sentence, or notes…"></textarea>
-    </div>
-    <div class="cw-field">
-      <label>Picture</label>
-      <div id="cw-img-row">
-        <img id="cw-img-preview" alt="preview">
-        <span id="cw-img-placeholder">🖼️</span>
-        <button id="cw-pick-img-btn" type="button">🖼️ From Gallery</button>
-        <button id="cw-remove-img-btn" type="button">Remove</button>
-      </div>
-      <div class="cw-hint">Picture is stored on your device — works offline forever, no re-download needed.</div>
-      <input type="file" id="cw-img-file-input" accept="image/*">
     </div>
     <button id="cw-save-btn">💾 Save Word</button>
   </div>
@@ -1273,11 +1242,6 @@ function _renderCustomCard(entry, container) {
   if(entry.odia)    card.innerHTML+=`<div class="lang-row"><span class="lang-badge badge-od">OD</span><span class="lang-text">${escHtml(entry.odia)}</span></div>`;
   if(entry.hindi)   card.innerHTML+=`<div class="lang-row"><span class="lang-badge badge-hi">HI</span><span class="lang-text">${escHtml(entry.hindi)}</span></div>`;
   if(entry.meaning) card.innerHTML+=`<div class="odia-entry-meaning" style="margin-top:6px;">${escHtml(entry.meaning)}</div>`;
-  if(entry.imageBlob){
-    const img=document.createElement('img'); img.alt=entry.english||''; img.loading='lazy';
-    img.src=URL.createObjectURL(entry.imageBlob);
-    card.appendChild(img);
-  }
   container.appendChild(card);
 }
 
@@ -1304,115 +1268,11 @@ function _openExternalUrl(url) {
   window.open(url, '_blank');
 }
 
-// Cache key prefix for auto-captured Google Images screenshots, stored
-// in IndexedDB only (see _saveCachedGimg/_idbPut below) — no browser
-// Cache API / service-worker cache is used anywhere for these images,
-// everything lives in IndexedDB.
-const GIMG_CACHE_PREFIX = 'gimg-cache:';
-// This is a QUALITY TARGET passed to the native encoder (AndroidShot,
-// in Java — not this file), not a hard cap: the encoder starts at a
-// high WebP quality level and only steps down toward this target if
-// the capture is unusually large/detailed, stopping the moment it's at
-// or under target rather than continuing to squeeze further — so
-// quality is never sacrificed more than necessary just to hit a byte
-// number. 16KB sits in the middle of the requested 10-20KB range,
-// keeping every word's saved image small (important at 30,000+ words)
-// while still landing on the high-quality end of what's achievable at
-// that size for a photo grid like this.
-const GIMG_QUALITY_TARGET_BYTES = 16 * 1024;
-
-function _gimgCacheKey(word) {
-  return GIMG_CACHE_PREFIX + String(word || '').trim().toLowerCase();
-}
-
-async function _getCachedGimg(word) {
-  try {
-    const idb = await _openIDB();
-    const rec = await _idbGet(idb, _gimgCacheKey(word));
-    return rec || null; // { blob, ts } or null
-  } catch (e) { return null; }
-}
-
-// PERMANENT LOCK: once a word has a saved offline image, it is final —
-// this never overwrites an existing record, even if the same word is
-// captured again later (e.g. viewed online again, or the app tries to
-// re-save on a subsequent offline event). The very first successful
-// capture for a word is the one that sticks for good.
-async function _saveCachedGimg(word, blob) {
-  try {
-    const idb = await _openIDB();
-    const key = _gimgCacheKey(word);
-    const existing = await _idbGet(idb, key);
-    if (existing && existing.blob) return; // already permanently saved — do not overwrite
-    await _idbPut(idb, key, { blob, ts: Date.now() });
-  } catch (e) { /* non-fatal — worst case it re-captures next time */ }
-}
-
-let _shotCallbackSeq = 0;
-const _shotCallbacks = {};
-// Bridge callback target — Java calls this once captureRegion() finishes.
-window._onScreenshotResult = function(callbackId, base64OrEmpty) {
-  const cb = _shotCallbacks[callbackId];
-  if (cb) { delete _shotCallbacks[callbackId]; cb(base64OrEmpty || ''); }
-};
-
-// Captures the on-screen pixels of the given element's bounding box via
-// the native Android bridge (AndroidShot), encoded server-side (in
-// Java) as WebP targeting high quality at `targetBytes`. This captures
-// what is actually painted on screen — not the iframe's cross-origin
-// DOM/network content, which JS can never read directly (that's a
-// browser security boundary, not something any web-layer trick can
-// bypass).
-function _captureElementScreenshot(el, targetBytes) {
-  return new Promise((resolve) => {
-    const bridge = window.AndroidShot;
-    if (!bridge || typeof bridge.captureRegion !== 'function') { resolve(''); return; }
-    const rect = el.getBoundingClientRect();
-    if (rect.width <= 0 || rect.height <= 0) { resolve(''); return; }
-    const id = 'shot_' + (++_shotCallbackSeq) + '_' + Date.now();
-    _shotCallbacks[id] = resolve;
-    const dpr = window.devicePixelRatio || 1;
-    try {
-      bridge.captureRegion(rect.left, rect.top, rect.width, rect.height, dpr, targetBytes, id);
-    } catch (e) { delete _shotCallbacks[id]; resolve(''); }
-    // Safety timeout in case the native side never calls back.
-    setTimeout(() => { if (_shotCallbacks[id]) { delete _shotCallbacks[id]; resolve(''); } }, 6000);
-  });
-}
-
-// Builds an in-app Google Images panel that auto-triggers the image
-// search for `word` and renders the results directly below the word's
-// meaning, inside an <iframe> that stays inside the app WebView (see the
-// shouldOverrideUrlLoading fix in MainActivity.java, which now only
-// redirects TOP-LEVEL navigation to the external browser and lets this
-// iframe's own navigation load in-place). The WebView's user-agent is set
-// to a desktop Chrome UA (see MainActivity.java) so Google serves its
-// full multi-column desktop image grid here — same layout as the
-// reference screenshot — which is then scaled down with CSS to fit this
-// narrow card. Nothing here scrapes or embeds Google's results as custom
-// markup — it simply displays Google's own page, unmodified, just resized.
-//
-// Online vs offline behavior:
-//   - ONLINE: shows an INSTANT preview immediately — the last-saved
-//     offline copy for this word if one exists (so there's something to
-//     look at on-screen right away, even on a slow connection), or a
-//     lightweight shimmer skeleton if nothing was ever saved yet. The
-//     live Google Images iframe loads in behind that at the same time
-//     and swaps in the moment it paints, giving the freshest result
-//     without ever showing a blank box while waiting.
-//   - OFFLINE: instantly shows whatever was saved to IndexedDB the first
-//     time this word was viewed online (no delay — there's no live
-//     fetch to wait on), or a simple offline notice if nothing was ever
-//     saved for this word. Rendered at full width with its natural
-//     aspect ratio (see .gimg-cached CSS) so the whole captured grid is
-//     visible — uncropped and unstretched — rather than forcing it into
-//     the live panel's fixed 360px box.
-//   - RECONNECT: any panel currently showing the "no offline image
-//     saved yet" notice is tracked in _pendingOfflinePanels. The moment
-//     the device comes back online (see the window 'online' listener
-//     below), every tracked panel automatically retries the live fetch
-//     on its own — no re-search or user action needed.
-const _pendingOfflinePanels = new Set(); // { word, wrap } waiting on a reconnect
+// Google Images panel: LIVE ONLINE SEARCH ONLY (High speed mode).
+// All image saving/caching (IndexedDB capture, offline fallback, native
+// screenshot bridge) has been removed. The panel always loads Google's
+// own image-search page directly in an iframe — nothing is stored,
+// captured, or reused between sessions.
 function _makeGoogleImgBox(word) {
   if (!word) return null;
   const panel = document.createElement('div');
@@ -1422,44 +1282,9 @@ function _makeGoogleImgBox(word) {
   wrap.className = 'gimg-panel-frame-wrap';
   panel.appendChild(wrap);
 
-  if (navigator.onLine) {
-    // Show something on screen INSTANTLY — a saved copy if we have one,
-    // otherwise a Google-style dots loader — while the live grid loads
-    // behind it. This is what makes slow networks feel fast: the user
-    // never stares at a blank box.
-    const skeleton = _makeGimgSkeleton();
-    wrap.appendChild(skeleton);
-    _getCachedGimg(word).then(rec => {
-      if (!wrap.isConnected) return; // panel already gone/replaced
-      if (rec && rec.blob) {
-        skeleton.remove();
-        const preview = document.createElement('img');
-        preview.className = 'gimg-instant-preview';
-        preview.alt = word;
-        preview.src = URL.createObjectURL(rec.blob);
-        wrap.insertBefore(preview, wrap.firstChild);
-      }
-    });
-    _renderLiveGoogleSearch(word, wrap, skeleton);
-  } else {
-    // Offline: show the last-saved capture immediately, if any;
-    // otherwise a simple offline notice (no iframe attempt — it would
-    // just fail to load). Either way, register this panel so that the
-    // moment connectivity returns, it keeps showing this same offline
-    // image on screen and only swaps to the fresh live grid once that
-    // has actually loaded — no blank flash in between.
-    _getCachedGimg(word).then(rec => {
-      if (!wrap.isConnected) return; // panel already gone/replaced
-      if (rec && rec.blob) {
-        _showCachedImage(wrap, word, rec.blob);
-        _pendingOfflinePanels.add({ word, wrap, hadCachedImage: true });
-      } else {
-        wrap.classList.add('gimg-offline-empty');
-        wrap.innerHTML = '<div class="gimg-panel-loading"><span>📵</span><span>No offline image saved yet</span></div>';
-        _pendingOfflinePanels.add({ word, wrap, hadCachedImage: false });
-      }
-    });
-  }
+  const skeleton = _makeGimgSkeleton();
+  wrap.appendChild(skeleton);
+  _renderLiveGoogleSearch(word, wrap, skeleton);
 
   return panel;
 }
@@ -1472,105 +1297,16 @@ function _makeGimgSkeleton() {
   return skeleton;
 }
 
-// The moment the device reconnects, every panel left showing an offline
-// image (or the "no offline image saved yet" notice) automatically
-// switches over to live — the user doesn't need to re-search or reopen
-// the word. If a panel already had its offline image on screen, that
-// image STAYS visible the whole time the fresh grid loads behind it
-// (exactly like the normal online instant-preview behavior), then
-// swaps to the live grid the moment it actually paints — no blank
-// flash in between. Panels removed from the DOM in the meantime (word
-// scrolled away/card re-rendered) are simply skipped and dropped from
-// the set.
-window.addEventListener('online', () => {
-  if (!_pendingOfflinePanels.size) return;
-  const panels = [..._pendingOfflinePanels];
-  _pendingOfflinePanels.clear();
-  panels.forEach(({ word, wrap, hadCachedImage }) => {
-    if (!wrap.isConnected) return; // panel no longer on screen — nothing to update
-
-    if (hadCachedImage) {
-      // Keep the offline image exactly as it is on screen right now —
-      // don't clear wrap — and let the live iframe load in behind/over
-      // it, fading in only once it has actually painted. This reuses
-      // the same "existing preview" swap-in path as the normal online
-      // instant-preview flow, just seeded with the offline image
-      // instead of a freshly-fetched one.
-      wrap.classList.remove('gimg-cached', 'gimg-offline-empty');
-      const existingImg = wrap.querySelector('img');
-      if (existingImg) existingImg.classList.add('gimg-instant-preview');
-      _renderLiveGoogleSearch(word, wrap, existingImg || null);
-    } else {
-      // Was showing the empty notice — nothing to keep on screen, so
-      // just show the static placeholder while the live grid loads.
-      const skeleton = _makeGimgSkeleton();
-      wrap.innerHTML = '';
-      wrap.appendChild(skeleton);
-      _renderLiveGoogleSearch(word, wrap, skeleton);
-    }
-  });
-});
-
-function _showCachedImage(wrap, word, blob) {
-  wrap.innerHTML = '';
-  wrap.classList.add('gimg-cached');
-  const img = document.createElement('img');
-  img.alt = word;
-  img.loading = 'lazy';
-  img.src = URL.createObjectURL(blob);
-  wrap.appendChild(img);
-}
-
-// Captures and saves the instant the device GOES OFFLINE while this
-// word's live image panel is still on screen — no fixed delay, no
-// polling, no frame checks. Whatever is painted in the panel at the
-// moment connectivity drops gets captured and saved right then.
-const _liveGimgPanels = new Set(); // { word, wrap } currently showing a live (online) panel
-function _captureWhenReady(wrap, word) {
-  const entry = { word, wrap };
-  _liveGimgPanels.add(entry);
-}
-
-window.addEventListener('offline', () => {
-  if (!_liveGimgPanels.size) return;
-  const panels = [..._liveGimgPanels];
-  _liveGimgPanels.clear();
-  panels.forEach(async ({ word, wrap }) => {
-    if (!wrap.isConnected) return; // panel no longer on screen — nothing to capture
-    const base64 = await _captureElementScreenshot(wrap, GIMG_QUALITY_TARGET_BYTES);
-    if (!base64) return;
-    await _persistGimgCapture(word, base64);
-  });
-});
-
-async function _persistGimgCapture(word, base64) {
-  try {
-    const bin = atob(base64);
-    const bytes = new Uint8Array(bin.length);
-    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-    // No hard cap — a capture is never discarded just for landing above
-    // the quality target. GIMG_QUALITY_TARGET_BYTES only steers the
-    // native encoder toward high fidelity at a reasonable size; keeping
-    // the image at all beats losing it over a soft budget.
-    const blob = new Blob([bytes], { type: 'image/webp' });
-    await _saveCachedGimg(word, blob);
-  } catch (e) { /* ignore — will simply retry next time this word is searched online */ }
-}
-
 function _renderLiveGoogleSearch(word, wrap, existingSkeleton) {
-  wrap.classList.remove('gimg-offline-empty', 'gimg-cached');
-  // Keep any instant preview/skeleton already in wrap — don't wipe them
-  // here, since removing them immediately would bring back the blank
-  // box on slow networks. They're removed only once the iframe itself
-  // has actually painted (see the 'load' handler below).
   Array.from(wrap.children).forEach(child => {
-    if (child !== existingSkeleton && !child.classList.contains('gimg-instant-preview')) child.remove();
+    if (child !== existingSkeleton) child.remove();
   });
 
   const iframe = document.createElement('iframe');
   // NOT lazy — lazy-loading an already-offscreen-triggered panel just adds
   // delay; the panel is only created when its result card renders, so we
-  // want this fetching immediately for the fastest possible image result.
+  // want this fetching immediately for the fastest possible image result
+  // (High speed mode).
   iframe.setAttribute('referrerpolicy', 'no-referrer');
   // Tells the browser/WebView to prioritize this fetch over lower-value
   // background requests, shaving time off first paint on slow/congested
@@ -1582,22 +1318,15 @@ function _renderLiveGoogleSearch(word, wrap, existingSkeleton) {
   iframe.style.transition = 'opacity 0.15s ease';
 
   iframe.addEventListener('load', () => {
-    // Fade the live grid in and drop the skeleton/instant-preview once
-    // the real content has actually painted — no flash, no layout jump.
+    // Fade the live grid in and drop the skeleton once the real content
+    // has actually painted — no flash, no layout jump.
     requestAnimationFrame(() => {
       iframe.style.opacity = '1';
       wrap.classList.add('gimg-live-loaded');
       const skel = wrap.querySelector('.gimg-skeleton');
       if (skel) skel.remove();
-      const preview = wrap.querySelector('.gimg-instant-preview');
-      if (preview) preview.remove();
     });
   }, { once: true });
-
-  // Register this panel as "live" now — if the device goes offline
-  // while it's still on screen, it gets captured and saved at that
-  // exact moment (see the 'offline' listener above).
-  _captureWhenReady(wrap, word);
 
   // SafeSearch forced on (safe=active) + igu=1 (the one Google Images URL
   // actually allowed to load in an iframe — Google's normal search pages
@@ -1653,9 +1382,9 @@ function renderResults(merged, fallbackWord) {
     if(r.hindi)   leftCol.innerHTML+=`<div class="lang-row"><span class="lang-badge badge-hi">HI</span><span class="lang-text">${escHtml(r.hindi)}</span></div>`;
 
     // Image slot: filled from an inline data: URL already on the row, if
-    // present. Otherwise falls back to the Google Images box, which
-    // itself is served live when online and from the IndexedDB-cached
-    // capture when offline (see _makeGoogleImgBox).
+    // present. Otherwise falls back to the Google Images box, which is
+    // always a live online search (High speed mode) — no image saving
+    // or offline caching (see _makeGoogleImgBox).
     if (r.image && r.image.startsWith('data:')) {
       const img=document.createElement('img'); img.alt=r.English||''; img.loading='lazy';
       img.src=r.image;
@@ -2108,7 +1837,6 @@ async function saveCustomWord(entry) {
     odia: (entry.odia||'').trim(),
     hindi: (entry.hindi||'').trim(),
     meaning: (entry.meaning||'').trim(),
-    imageBlob: entry.imageBlob || null,
     createdAt: entry.createdAt || Date.now()
   };
   await _storePut(idb, IDB_WORDS_STORE, id, record);
@@ -2127,21 +1855,11 @@ async function deleteCustomWord(id) {
 }
 
 // ── Add Custom Word modal wiring ──────────────────────────────────────
-let _cwPickedImageBlob = null;
-function getImageBridge() {
-  return (window.AndroidImage && typeof window.AndroidImage.openImagePicker === 'function')
-    ? window.AndroidImage : null;
-}
 function _cwResetForm() {
   document.getElementById('cw-english').value = '';
   document.getElementById('cw-odia').value = '';
   document.getElementById('cw-hindi').value = '';
   document.getElementById('cw-meaning').value = '';
-  _cwPickedImageBlob = null;
-  const prev = document.getElementById('cw-img-preview');
-  prev.src = ''; prev.style.display = 'none';
-  document.getElementById('cw-img-placeholder').style.display = 'flex';
-  document.getElementById('cw-remove-img-btn').style.display = 'none';
 }
 function openAddWordModal() {
   _cwResetForm();
@@ -2155,53 +1873,13 @@ document.getElementById('add-word-btn').addEventListener('click', openAddWordMod
 document.getElementById('cw-close-btn').addEventListener('click', closeAddWordModal);
 document.getElementById('cw-overlay').addEventListener('click', function(e){ if(e.target===this) closeAddWordModal(); });
 
-function _cwShowPickedImage(blob) {
-  _cwPickedImageBlob = blob;
-  const prev = document.getElementById('cw-img-preview');
-  prev.src = URL.createObjectURL(blob);
-  prev.style.display = 'block';
-  document.getElementById('cw-img-placeholder').style.display = 'none';
-  document.getElementById('cw-remove-img-btn').style.display = 'inline-block';
-}
-
-document.getElementById('cw-pick-img-btn').addEventListener('click', () => {
-  const bridge = getImageBridge();
-  if (bridge) { try { bridge.openImagePicker(); return; } catch(e) {} }
-  document.getElementById('cw-img-file-input').click();
-});
-document.getElementById('cw-remove-img-btn').addEventListener('click', () => {
-  _cwPickedImageBlob = null;
-  const prev = document.getElementById('cw-img-preview');
-  prev.src = ''; prev.style.display = 'none';
-  document.getElementById('cw-img-placeholder').style.display = 'flex';
-  document.getElementById('cw-remove-img-btn').style.display = 'none';
-});
-document.getElementById('cw-img-file-input').addEventListener('change', function() {
-  const file = this.files[0]; if (!file) return;
-  _cwShowPickedImage(file);
-  this.value = '';
-});
-
-// Called by MainActivity.ImageBridge after the user picks a picture from the gallery.
-window._androidImageResult = function(b64, mime) {
-  try {
-    const bin = atob(b64), buf = new Uint8Array(bin.length);
-    for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
-    const blob = new Blob([buf], { type: mime || 'image/jpeg' });
-    _cwShowPickedImage(blob);
-  } catch(e) { showToast('Image error: ' + e.message); }
-};
-window._androidImageError = function(msg) {
-  if (msg !== 'cancelled') showToast('Image error: ' + msg);
-};
-
 document.getElementById('cw-save-btn').addEventListener('click', async () => {
   const english = document.getElementById('cw-english').value.trim();
   const odia    = document.getElementById('cw-odia').value.trim();
   const hindi   = document.getElementById('cw-hindi').value.trim();
   const meaning = document.getElementById('cw-meaning').value.trim();
   if (!english && !odia && !hindi) { showToast('Enter at least one word!'); return; }
-  await saveCustomWord({ english, odia, hindi, meaning, imageBlob: _cwPickedImageBlob });
+  await saveCustomWord({ english, odia, hindi, meaning });
   showToast('✓ Word saved — available offline');
   closeAddWordModal();
   const cur = document.getElementById('search-input').value.trim();
