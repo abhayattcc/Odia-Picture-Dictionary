@@ -288,8 +288,8 @@ body[data-reader-theme="sepia"] { --topbar-bg:#ede3cc; --settings-bg:#e8dcc4; --
 /* ── Result cards ── */
 .result-card { background: #fff; border-radius: 12px; padding: 12px 14px; margin-bottom: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.12); animation: slideIn 0.2s ease; }
 .result-card.result-card-split { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-start; }
-.result-card.result-card-split .result-col-left { flex: 1 1 220px; min-width: 180px; }
-.result-card.result-card-split .result-col-right { flex: 1 1 220px; min-width: 180px; border-left: 1px solid #eee; padding-left: 14px; }
+.result-card.result-card-split .result-col-left { flex: 1 1 220px; min-width: 0; max-width: 100%; }
+.result-card.result-card-split .result-col-right { flex: 1 1 220px; min-width: 0; max-width: 100%; border-left: 1px solid #eee; padding-left: 14px; }
 /* When expanded, the right column (English definition + example) takes
    the card's full width and its left border (meant to separate it from
    the left column) is dropped since the left column is hidden. */
@@ -302,14 +302,20 @@ body[data-reader-theme="sepia"] { --topbar-bg:#ede3cc; --settings-bg:#e8dcc4; --
   .result-card.result-card-split .result-col-right { border-left: none; padding-left: 0; border-top: 1px solid #eee; padding-top: 10px; margin-top: 4px; }
 }
 @keyframes slideIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
-.lang-row { display: flex; align-items: baseline; gap: 6px; margin-bottom: 4px; line-height: 1.4; }
+.lang-row { display: flex; align-items: baseline; gap: 6px; margin-bottom: 4px; line-height: 1.4; min-width: 0; }
 .lang-badge { font-size: 10px; font-weight: 700; letter-spacing: 0.5px; padding: 1px 6px; border-radius: 8px; flex-shrink: 0; text-transform: uppercase; }
 .badge-en { background: #e3f2fd; color: #1565C0; }
 .badge-od { background: #fce4ec; color: #880e4f; }
 .badge-hi { background: #e8f5e9; color: #1b5e20; }
 .badge-sp { background: #fff3e0; color: #e65100; }
 .badge-def { background: #f3e5f5; color: #6a1b9a; }
-.lang-text { font-size: 15px; color: #212121; font-weight: 500; word-wrap: break-word; overflow-wrap: break-word; word-break: break-word; }
+/* min-width:0 is the key fix here — a flex item's default min-width is
+   "auto", which means it refuses to shrink below its content's intrinsic
+   width even with word-break set, so a single long word could blow past
+   the card's edge instead of wrapping. flex:1 lets it take the remaining
+   row width after the badge, and min-width:0 lets it actually shrink into
+   that space and wrap normally. */
+.lang-text { flex: 1 1 auto; min-width: 0; font-size: 15px; color: #212121; font-weight: 500; word-wrap: break-word; overflow-wrap: break-word; word-break: break-word; hyphens: auto; }
 .tok { border-radius: 3px; padding: 0 1px; }
 .tok.tok-hl { background: #ffe082; }
 .result-card img:not(.gimg-panel-frame-wrap img) { width: 100%; border-radius: 8px; margin-top: 8px; max-height: 140px; object-fit: contain; background: #fafafa; }
@@ -972,10 +978,10 @@ async function extractPdf(file) {
 //  DATABASE
 // ══════════════════════════════════════════════════════════════════════
 const DB_URLS = {
-  eo: 'https://raw.githubusercontent.com/abhayattcc/Best-odia-dictionary/refs/heads/main/data/english_odia.db.gz',
-  eh: 'https://raw.githubusercontent.com/abhayattcc/Best-odia-dictionary/refs/heads/main/data/english_hindi.db1.gz',
-  om: 'https://raw.githubusercontent.com/abhayattcc/Best-odia-dictionary/refs/heads/main/data/odia_meaning.db.gz',
-  en: 'https://raw.githubusercontent.com/abhayattcc/Best-odia-dictionary/refs/heads/main/data/english.db.gz'
+  eo: 'https://raw.githubusercontent.com/abhayattcc/English-Hindi-Odia-Picture-Dictionary/refs/heads/main/data/english_odia.db.gz',
+  eh: 'https://raw.githubusercontent.com/abhayattcc/English-Hindi-Odia-Picture-Dictionary/refs/heads/main/data/english_hindi.db1.gz',
+  om: 'https://raw.githubusercontent.com/abhayattcc/English-Hindi-Odia-Picture-Dictionary/refs/heads/main/data/odia_meaning.db.gz',
+  en: 'https://raw.githubusercontent.com/abhayattcc/English-Hindi-Odia-Picture-Dictionary/refs/heads/main/data/english.db.gz'
 };
 const DB_VERSION = 'v3';
 const IDB_NAME = 'dict-store';
@@ -1204,10 +1210,45 @@ async function loadOdiaDB() {
   }
 }
 
+// Prepared-statement cache: re-preparing the same SQL text on every call was
+// costing a full parse+plan step per search. We cache one prepared statement
+// per (db, sql) pair and just reset+rebind on reuse.
+const _stmtCache = new Map();
+function _stmtKeyForDb(db) {
+  if (db === dbEO) return 'eo';
+  if (db === dbEH) return 'eh';
+  if (db === dbEN) return 'en';
+  if (db === dbOM) return 'om';
+  return 'unk';
+}
 function dbQuery(db,sql,params) {
   if(!db) return [];
-  try{const s=db.prepare(sql);s.bind(params);const rows=[];while(s.step()) rows.push(s.getAsObject());s.free();return rows;}
-  catch(e){return [];}
+  const cacheKey = _stmtKeyForDb(db) + '::' + sql;
+  try{
+    let s = _stmtCache.get(cacheKey);
+    if (!s) { s = db.prepare(sql); _stmtCache.set(cacheKey, s); }
+    s.bind(params);
+    const rows=[];
+    while(s.step()) rows.push(s.getAsObject());
+    s.reset();
+    return rows;
+  }
+  catch(e){
+    // If a cached statement got into a bad state (e.g. schema changed), drop it
+    // and retry once with a fresh prepare rather than silently failing forever.
+    const bad = _stmtCache.get(cacheKey);
+    if (bad) { try{bad.free();}catch(_){} _stmtCache.delete(cacheKey); }
+    try{
+      const s2=db.prepare(sql); s2.bind(params);
+      const rows=[]; while(s2.step()) rows.push(s2.getAsObject());
+      _stmtCache.set(cacheKey, s2);
+      return rows;
+    } catch(e2){ return []; }
+  }
+}
+function _clearStmtCache() {
+  _stmtCache.forEach(s=>{try{s.free();}catch(_){}});
+  _stmtCache.clear();
 }
 function mergeRows(rows) {
   const map=new Map();
@@ -1672,6 +1713,27 @@ function clearOdiaResults() {
 // ══════════════════════════════════════════════════════════════════════
 //  REVERSE SEARCH
 // ══════════════════════════════════════════════════════════════════════
+// Batches N per-row lookups into a single indexed IN(...) query, so a page of
+// 12 results costs 1 extra query instead of 12. Falls back gracefully when
+// there are no rows / no English keys to look up.
+function _attachHindiBatch(rows) {
+  const keys = [...new Set(rows.map(r=>r.English).filter(Boolean))];
+  if (!keys.length) return rows;
+  const placeholders = keys.map(()=>'?').join(',');
+  const hMap = new Map();
+  dbQuery(dbEH, `SELECT English,hindi FROM dictionary WHERE English IN (${placeholders})`, keys)
+    .forEach(r=>{ if(!hMap.has(r.English)) hMap.set(r.English, r.hindi); });
+  return rows.map(r => (r.English && hMap.has(r.English)) ? {...r, hindi: hMap.get(r.English)} : r);
+}
+function _attachOdiaBatch(rows) {
+  const keys = [...new Set(rows.map(r=>r.English).filter(Boolean))];
+  if (!keys.length) return rows;
+  const placeholders = keys.map(()=>'?').join(',');
+  const oMap = new Map();
+  dbQuery(dbEO, `SELECT English,odia FROM dictionary WHERE English IN (${placeholders})`, keys)
+    .forEach(r=>{ if(!oMap.has(r.English)) oMap.set(r.English, r.odia); });
+  return rows.map(r => (r.English && oMap.has(r.English)) ? {...r, odia: oMap.get(r.English)} : r);
+}
 function reverseOdiaExact(word) {
   if(!dbReady) return [];
   const w=normaliseNative(word); if(!w) return [];
@@ -1684,12 +1746,7 @@ function reverseOdiaExact(word) {
       if(r2.length){rows=r2;break;}
     }
   }
-  return rows.map(r=>{
-    if(!r.English) return r;
-    const hRows=dbQuery(dbEH,'SELECT hindi FROM dictionary WHERE English=?',[r.English]);
-    if(hRows.length) return {...r,hindi:hRows[0].hindi};
-    return r;
-  });
+  return _attachHindiBatch(rows);
 }
 function reverseOdiaPrefix(word,limit) {
   limit=limit||12; if(!dbReady) return [];
@@ -1713,12 +1770,7 @@ function reverseHindiExact(word) {
   if(!dbReady) return [];
   const w=normaliseNative(word); if(!w) return [];
   let rows=dbQuery(dbEH,"SELECT English,hindi FROM dictionary WHERE hindi=? OR hindi LIKE ? OR hindi LIKE ? OR hindi LIKE ? OR hindi LIKE ?",[w,w+', %',w+'; %',w+'/ %',w+' %']);
-  return rows.map(r=>{
-    if(!r.English) return r;
-    const oRows=dbQuery(dbEO,'SELECT odia FROM dictionary WHERE English=?',[r.English]);
-    if(oRows.length) return {...r,odia:oRows[0].odia};
-    return r;
-  });
+  return _attachOdiaBatch(rows);
 }
 function reverseHindiPrefix(word,limit) {
   limit=limit||12; if(!dbReady) return [];
@@ -1780,6 +1832,12 @@ function lookupEnglishMeaning(word) {
   });
   return { entries };
 }
+// Note: called per-row from doEnSearch/_doReverseExact result loops. This is
+// intentionally left as one query per row (rather than batched IN(...)) since
+// result sets here are typically 1-6 rows, and lookupEnglishMeaning's two-step
+// LIKE + LOWER() fallback doesn't batch cleanly across multiple distinct words.
+// If result sets grow large in practice, batch this the same way as
+// _attachHindiBatch/_attachOdiaBatch above.
 function attachEnglishMeaning(r) {
   if(!r.English) return;
   const en=lookupEnglishMeaning(r.English);
@@ -1969,7 +2027,9 @@ document.getElementById('odia-dict-btn').addEventListener('click', async functio
 // ══════════════════════════════════════════════════════════════════════
 //  UNIFIED SEARCH LOGIC
 // ══════════════════════════════════════════════════════════════════════
-const SEARCH_DELAY = 1000;
+// Was 1000ms — with statement caching + batched lookups queries are cheap
+// enough now that we don't need to wait nearly that long before searching.
+const SEARCH_DELAY = 250;
 let _searchTimer=null, _rafHandle=null, _lastVal='', _typingState=false;
 
 const _input     = document.getElementById('search-input');
