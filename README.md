@@ -17,15 +17,18 @@ Whether you're a student preparing for competitive exams, a parent teaching Odia
 
 ## ✨ Key Features
 
-- **🌐 Trilingual Search** — Search any word in English, Odia, or Hindi and get instant cross-language definitions and translations.
+- **🌐 Trilingual Search** — Search any word in English, Odia, or Hindi and get instant cross-language definitions and translations, with automatic language/script detection as you type.
 - **🖼️ Picture Dictionary** — Visual word cards with images to help learners (especially children) associate words with pictures for faster memorization.
-- **ଓ Odia-to-Odia Dictionary Mode** — A dedicated Odia dictionary mode for looking up Odia word meanings in Odia, complete with spelling and usage.
-- **🔊 Text-to-Speech (TTS)** — Native pronunciation playback in English, Odia, and Hindi with adjustable speaking speed.
-- **📝 Full-Screen Reader** — Paste or upload any text/PDF and read it in a distraction-free, paginated reader with word-by-word read-aloud highlighting.
-- **➕ Custom Word Entries** — Add your own English–Odia–Hindi word entries to build a personal vocabulary list.
-- **📶 100% Offline-Capable** — Uses IndexedDB for persistent local storage so the dictionary, cached images, and saved notes survive app restarts and "Clear Cache" actions.
-- **🎨 Reader Themes** — Light, dark, and sepia reading themes with adjustable font size for comfortable reading in any lighting.
-- **📄 PDF & File Import** — Load your own documents into the reader for TTS playback and offline reading.
+- **🔎 Live Google Images Lookup** — Fetches live image results for a searched word directly from Google Images (requires an internet connection; results are not cached offline).
+- **ଓ Odia-to-Odia Dictionary Mode** — A dedicated Odia dictionary mode for looking up Odia word meanings in Odia, complete with spelling, variant normalisation, and usage.
+- **🔊 Text-to-Speech (TTS)** — Native pronunciation playback in English, Odia, and Hindi with adjustable speaking speed and word-by-word read-aloud highlighting.
+- **🫧 Floating Mode** — Undock the search bar into a floating widget that stays on top so you can look up words while using other apps, then restore it back into the page.
+- **📝 Full-Screen Reader** — Paste text or upload `.txt`, `.html`, `.docx`, `.doc`, `.pdf`, `.md`, or `.rtf` files and read them in a distraction-free, paginated reader with word-by-word read-aloud highlighting.
+- **📖 Reader Page Navigation** — Jump between pages with first/prev/next/last controls or a direct page-number input, with a live reading-progress bar.
+- **➕ Custom Word Entries** — Add your own English–Odia–Hindi word entries, complete with meanings and notes, to build a personal vocabulary list.
+- **📶 100% Offline-Capable** — Uses IndexedDB for persistent local storage so the dictionary, custom words, and saved notes survive app restarts and "Clear Cache" actions. (Google Images results require an internet connection and are not cached.)
+- **🎨 Reader Themes & Controls** — Light, dark, and sepia reading themes with adjustable font size, reading speed, and page length for comfortable reading in any lighting.
+- **📄 Document Import (PDF/DOCX/etc.)** — Extracts text client-side from PDFs and Word documents (no server upload) for TTS playback and offline reading.
 - **⚡ Instant, Lightweight & Portable** — Runs entirely as a single web page with no installation, no build step, and no server dependency — just open and search.
 
 ## 📚 Why Use a Trilingual English Hindi Odia Dictionary?
@@ -51,19 +54,23 @@ No installation, no build step, no external server, and no account or login is r
 | Feature | Description |
 |---|---|
 | **Search bar** | Type in English, Odia, or Hindi — the app auto-detects language and script |
+| **Float (🫧) / Stop** | Undock the search bar into a floating widget over other apps, or stop and restore it |
 | **Odia Dictionary toggle (ଓ)** | Switch to Odia↔Odia meaning lookup mode |
+| **Add word (➕)** | Add your own English/Odia/Hindi word entry, with meaning and notes, to the dictionary |
+| **Reader (📝)** | Opens a full-screen, paginated, read-aloud text reader with page navigation and progress bar |
 | **Speak button (🔊)** | Hear the correct pronunciation in the detected language |
-| **Reader (📝)** | Opens a full-screen, paginated, read-aloud text reader |
-| **Add word (➕)** | Add your own English/Odia/Hindi word entry to the dictionary |
-| **Offline image cache** | Download word images once, view them anytime without internet |
+| **Font size (A− / A+)** | Adjust the app's text size directly from the search bar |
+| **Google Images (online)** | Live Google Images results are fetched per word when you're online — not cached for offline use |
 
 ## 🛠️ Tech Stack
 
 - Pure **HTML, CSS, and vanilla JavaScript** — no frameworks required
-- **IndexedDB** for offline persistence of dictionary data, cached assets, and custom words
+- **IndexedDB** for offline persistence of dictionary data and custom words
 - **SpeechSynthesis API** for multilingual text-to-speech
-- **PDF.js** (lazy-loaded) for reading uploaded PDF documents
+- **PDF.js** (lazy-loaded) for extracting text from uploaded PDF documents
+- Built-in **DOCX text extraction** (zip/XML parsing) for reading uploaded Word documents
 - **sql.js** (lazy-loaded, WASM) for local dictionary database queries
+- Client-side **Google Images fetch** for live picture-dictionary results (requires internet; not cached offline)
 
 ## 📷 Use Cases
 
