@@ -337,17 +337,26 @@ body.float-mode #float-speak-btn.active { background: #ffb300; color: #1a237e; }
 #reader-content-wrap { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 18px 16px 40px; background: var(--content-bg); }
 #reader-content { max-width: 700px; margin: 0 auto; line-height: 1.9; white-space: pre-wrap; word-break: break-word; font-size: 17px; color: var(--text); font-family: 'Georgia','Noto Serif',serif; animation: pageFade 0.16s ease; }
 @keyframes pageFade { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:translateY(0); } }
-#reader-content .rtok { border-radius: 3px; padding: 0 2px; transition: background 0.1s; cursor: pointer; }
-#reader-content .rtok:hover { background: var(--tok-hover); }
-#reader-content .rtok.rhl { background: #ffe082; color: #111 !important; }
-#reader-content .rsent { border-radius: 4px; transition: background 0.2s; }
-#reader-content .rsent.rsent-active { background: rgba(255, 224, 130, 0.16); box-shadow: 0 0 0 2px rgba(255, 224, 130, 0.25); }
+#reader-content .rsent { border-radius: 4px; cursor: pointer; }
 #reader-upload-prompt { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 40px 20px; text-align: center; }
 #reader-upload-prompt .prompt-icon { font-size: 48px; }
 #reader-upload-prompt p { font-size: 15px; line-height: 1.5; max-width: 280px; color: var(--muted); }
 #reader-upload-prompt .prompt-btn { padding: 10px 24px; border: none; border-radius: 20px; background: #6a1b9a; color: white; font-size: 14px; font-weight: 700; cursor: pointer; }
 #reader-info { padding: 4px 12px; flex-shrink: 0; background: var(--settings-bg); border-top: 1px solid var(--border); font-size: 10px; color: var(--muted); text-align: center; }
 #reader-progress { height: 2px; background: #00bfa5; width: 0%; position: fixed; top: 0; left: 0; z-index: 10001; transition: width 0.2s; }
+
+/* ── Big-text "Now Reading" overlay — pinned to vertical middle of screen,
+     shows only the sentence currently being read/highlighted, in large type. ── */
+#now-reading { display: none; position: fixed; left: 0; right: 0; top: 50%; transform: translateY(-50%); z-index: 10000; padding: 0 18px; pointer-events: none; }
+#now-reading.visible { display: flex; }
+#now-reading-inner { margin: 0 auto; max-width: 720px; width: 100%; background: var(--nr-bg); border: 1px solid var(--nr-border); border-radius: 18px; padding: 22px 22px; box-shadow: 0 12px 40px rgba(0,0,0,0.35); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+#now-reading-text { font-size: 26px; line-height: 1.6; text-align: center; color: var(--text); font-family: 'Georgia','Noto Serif',serif; white-space: pre-wrap; word-break: break-word; }
+#now-reading-text .rtok { border-radius: 4px; padding: 0 3px; transition: background 0.1s; }
+#now-reading-text .rtok.rhl { background: #ffe082; color: #111 !important; }
+body[data-reader-theme="dark"]  #now-reading-inner { --nr-bg: rgba(20,20,20,0.92); --nr-border: rgba(255,255,255,0.08); }
+body[data-reader-theme="light"] #now-reading-inner { --nr-bg: rgba(255,255,255,0.94); --nr-border: rgba(0,0,0,0.08); }
+body[data-reader-theme="sepia"] #now-reading-inner { --nr-bg: rgba(245,236,215,0.95); --nr-border: rgba(59,47,18,0.12); }
+#reader-content-wrap.dimmed #reader-content { opacity: 0.35; transition: opacity 0.2s; }
 
 /* THEMES */
 body[data-reader-theme="dark"]  { --topbar-bg:#1a1a1a; --settings-bg:#161616; --content-bg:#111; --text:#ddd; --muted:#666; --border:#2a2a2a; --btn-bg:#2a2a2a; --tok-hover:rgba(0,191,165,0.18); }
@@ -655,6 +664,7 @@ body[data-reader-theme="sepia"] { --topbar-bg:#ede3cc; --settings-bg:#e8dcc4; --
     </div>
     <div id="reader-content" style="display:none"></div>
   </div>
+  <div id="now-reading"><div id="now-reading-inner"><div id="now-reading-text"></div></div></div>
   <div id="reader-info">No file loaded</div>
 </div>
 
@@ -772,11 +782,9 @@ window._onRewardResult = function(callbackId, earned) {
 };
 
 // ══════════════════════════════════════════════════════════════════════
-//  FILE PICKER
+//  FILE PICKER — always opens directly into the fullscreen reader
 // ══════════════════════════════════════════════════════════════════════
-let _pendingFileTarget = 'panel';
-function openFilePicker(target) {
-  _pendingFileTarget = target || 'panel';
+function openFilePicker() {
   const bridge = getFileBridge();
   if (bridge) { try { bridge.openFilePicker(); return; } catch(e) {} }
   document.getElementById('file-upload-input').click();
@@ -800,17 +808,13 @@ document.getElementById('file-upload-input').addEventListener('change', async fu
 });
 
 function deliverExtractedText(name, text) {
-  if (_pendingFileTarget === 'reader') { openReader(text, name); showToast('Loaded ✓'); }
-  else {
-    document.getElementById('custom-text').value = text;
-    _dset(SAVE_KEY, text);
-    showEditMode(); showToast('Loaded: ' + name);
-  }
+  openReader(text, name);
+  showToast('Loaded ✓');
 }
 
-document.getElementById('upload-file-btn').addEventListener('click', () => openFilePicker('panel'));
-document.getElementById('reader-file-btn').addEventListener('click', () => openFilePicker('reader'));
-document.getElementById('reader-prompt-file-btn').addEventListener('click', () => openFilePicker('reader'));
+document.getElementById('upload-file-btn').addEventListener('click', () => openFilePicker());
+document.getElementById('reader-file-btn').addEventListener('click', () => openFilePicker());
+document.getElementById('reader-prompt-file-btn').addEventListener('click', () => openFilePicker());
 
 // ══════════════════════════════════════════════════════════════════════
 //  LANGUAGE HELPERS
@@ -2433,33 +2437,55 @@ document.getElementById('fullscreen-btn').addEventListener('click',()=>{
 });
 
 // ══════════════════════════════════════════════════════════════════════
-//  FULL-TEXT READER — shows the whole page, reads one sentence at a
-//  time, keeps the active sentence scrolled to the vertical middle,
-//  and remembers the exact sentence position per file.
+//  FULL-TEXT READER — shows the whole original page (byte-identical,
+//  formatting untouched) and reads one sentence at a time. The sentence
+//  currently being read is shown enlarged in a fixed panel pinned to the
+//  vertical middle of the screen, with word-by-word highlight, while the
+//  full text stays visible (dimmed) behind it. Remembers the exact
+//  sentence position per file.
 // ══════════════════════════════════════════════════════════════════════
-const R={fileName:'',sentences:[],wordCount:0,curSent:0,totalSents:0,sentEls:[],pageTokens:[],playing:false};
+const R={fileName:'',rawText:'',sentences:[],wordCount:0,curSent:0,totalSents:0,sentEls:[],pageTokens:[],playing:false};
 const SENT_PFX='rsent:';
-// Splits raw text into sentences (Odia/Hindi danda ।॥ and . ! ? all count as enders).
-function splitIntoSentences(text){
-  const norm=text.replace(/\r\n/g,'\n').replace(/[ \t]+/g,' ').trim();
-  if(!norm) return [];
-  const paras=norm.split(/\n\s*\n/);
-  const out=[];
-  for(const para of paras){
-    let p=para.replace(/\n/g,' ').trim();
-    if(!p) continue;
-    // protect decimal points inside numbers (e.g. 3.5) so they aren't treated as sentence enders
-    p=p.replace(/(\d)\.(\d)/g,'$1\u0000$2');
-    const re=/[^.!?।॥]+[.!?।॥]+(?=\s|$)|[^.!?।॥]+$/g;
-    let m; let any=false;
-    while((m=re.exec(p))){
-      const s=m[0].trim().replace(/\u0000/g,'.');
-      if(!s) continue;
-      out.push(s); any=true;
+// Splits the ORIGINAL text into sentence [start,end) offset ranges, without
+// altering, trimming, or collapsing any whitespace/newlines. Splitting is
+// LINE-AWARE first: each non-blank line is its own unit unless it contains
+// internal sentence-ending punctuation (.!? or Odia/Hindi danda ।॥), in
+// which case that line is further split into individual sentences. This
+// makes list items, headings, and answer-choice lines (e.g. "କ) ...",
+// "1. ...") each read as one natural unit instead of being merged into one
+// giant block or wrongly split at a numbering marker's period. A short
+// leading numbering/list marker ("1.", "୧.", "क)", "a)") at the very start
+// of a line is protected so it never itself counts as a sentence end.
+// Every character of the original text — including all whitespace between
+// sentences and blank lines — is still accounted for by the caller
+// (renderFullText), so the rendered output is byte-identical to source.
+function splitIntoSentenceRanges(text){
+  const ranges=[];
+  if(!text) return ranges;
+  // protect decimal points inside numbers (e.g. 3.5) so they aren't treated as sentence enders
+  let guarded=text.replace(/(\d)\.(\d)/g,(m,a,b)=>a+'\u0000'+b);
+  // protect a short leading numbering/list marker at the start of a line, e.g. '୧.', '1.', 'क)', 'a)'
+  guarded=guarded.replace(/^([ \t]*[0-9\u0B66-\u0B6F\u0966-\u096Fa-zA-Z\u0B00-\u0B7F\u0900-\u097F]{1,3}[.)])/gm, m=>m.replace(/\./g,'\u0001'));
+  const lineRe=/[^\n]+/g;
+  let lm;
+  while((lm=lineRe.exec(guarded))){
+    const lineStart=lm.index, lineText=lm[0];
+    if(lineText.trim()==='') continue;
+    const sentRe=/[^.!?।॥]*[.!?।॥]+/g;
+    let sm, lastEnd=0, any=false;
+    while((sm=sentRe.exec(lineText))){
+      if(sm[0].trim()==='') continue;
+      ranges.push([lineStart+sm.index, lineStart+sm.index+sm[0].length]);
+      lastEnd=sm.index+sm[0].length; any=true;
     }
-    if(!any && p) out.push(p.replace(/\u0000/g,'.'));
+    if(lastEnd<lineText.length){
+      if(lineText.slice(lastEnd).trim()!=='') ranges.push([lineStart+lastEnd, lineStart+lineText.length]);
+    } else if(!any){
+      ranges.push([lineStart, lineStart+lineText.length]);
+    }
   }
-  return out.length?out:[norm];
+  if(!ranges.length && text.trim()!=='') ranges.push([0,text.length]);
+  return ranges;
 }
 function tokenizeSentence(sentText){
   const tokens=[];
@@ -2470,47 +2496,64 @@ function tokenizeSentence(sentText){
   }
   return tokens;
 }
-// Renders the ENTIRE text once. Each sentence becomes a <span class="rsent">
-// wrapping word-<span class="rtok"> children (used for playback highlight).
+// Renders the ENTIRE original text once, completely unmodified. Sentence
+// ranges are wrapped in <span class="rsent"> (used only to locate tap
+// targets); any whitespace between/around sentences (including blank
+// lines) is inserted as plain, untouched text nodes so line breaks,
+// indentation, and spacing match the source exactly.
 function renderFullText(){
   const content=document.getElementById('reader-content');
   const frag=document.createDocumentFragment();
   R.sentEls=[];
-  R.sentences.forEach((sentText,sIdx)=>{
+  const text=R.rawText;
+  let cursor=0;
+  R.sentences.forEach(([start,end],sIdx)=>{
+    if(start>cursor) frag.appendChild(document.createTextNode(text.slice(cursor,start)));
     const sentWrap=document.createElement('span');
     sentWrap.className='rsent';
     sentWrap.dataset.sidx=sIdx;
-    const toks=tokenizeSentence(sentText);
-    toks.forEach(tok=>{
-      if(!tok.isWord){sentWrap.appendChild(document.createTextNode(tok.text));}
-      else{const sp=document.createElement('span');sp.className='rtok';sp.textContent=tok.text;sentWrap.appendChild(sp);}
-    });
+    sentWrap.textContent=text.slice(start,end);
     R.sentEls.push(sentWrap);
     frag.appendChild(sentWrap);
-    frag.appendChild(document.createTextNode(' '));
+    cursor=end;
   });
+  if(cursor<text.length) frag.appendChild(document.createTextNode(text.slice(cursor)));
   content.style.display='block'; document.getElementById('reader-upload-prompt').style.display='none';
   content.innerHTML=''; content.appendChild(frag);
 }
-// Collects the word-token spans belonging to one sentence element (for TTS/highlight).
-function tokensForSentence(sentIdx){
-  const wrap=R.sentEls[sentIdx]; if(!wrap) return [];
-  return Array.from(wrap.querySelectorAll('.rtok')).map(el=>({el,text:el.textContent,lang:detectLang(el.textContent)||'en'}));
+// Builds the big-text "Now Reading" panel for one sentence: word-<span
+// class="rtok"> tokens for playback highlight, rendered large in the
+// fixed center overlay (the background full text stays dimmed).
+function showNowReading(sentIdx){
+  const [start,end]=R.sentences[sentIdx];
+  const sentText=R.rawText.slice(start,end);
+  const box=document.getElementById('now-reading-text');
+  box.innerHTML=''; R.pageTokens=[];
+  tokenizeSentence(sentText).forEach(tok=>{
+    if(!tok.isWord){box.appendChild(document.createTextNode(tok.text));}
+    else{const sp=document.createElement('span');sp.className='rtok';sp.textContent=tok.text;R.pageTokens.push({el:sp,text:tok.text,lang:tok.lang});box.appendChild(sp);}
+  });
+  document.getElementById('now-reading').classList.add('visible');
+  document.getElementById('reader-content-wrap').classList.add('dimmed');
 }
-function scrollSentenceToMiddle(sentIdx){
+function hideNowReading(){
+  document.getElementById('now-reading').classList.remove('visible');
+  document.getElementById('reader-content-wrap').classList.remove('dimmed');
+}
+function scrollSentenceIntoView(sentIdx){
   const wrap=R.sentEls[sentIdx]; if(!wrap) return;
   wrap.scrollIntoView({block:'center',behavior:'smooth'});
 }
 function setActiveSentence(sentIdx,save){
   sentIdx=Math.max(0,Math.min(sentIdx,R.totalSents-1));
-  R.sentEls.forEach((el,i)=>el.classList.toggle('rsent-active',i===sentIdx));
-  R.curSent=sentIdx; R.pageTokens=tokensForSentence(sentIdx);
+  R.curSent=sentIdx;
+  showNowReading(sentIdx);
   updatePageNav(); updateReaderProgress();
   if(save) _dset(SENT_PFX+R.fileName,sentIdx);
 }
 function goToSentence(sentIdx){
   setActiveSentence(sentIdx,true);
-  scrollSentenceToMiddle(sentIdx);
+  scrollSentenceIntoView(sentIdx);
 }
 function updatePageNav(){
   const nav=document.getElementById('page-nav');
@@ -2529,12 +2572,13 @@ function openReader(text,name){
   R.fileName=name||'Reader'; document.getElementById('reader-title').textContent=R.fileName;
   document.getElementById('reader-overlay').classList.add('open'); document.body.style.overflow='hidden';
   if(text&&text.trim()) loadReaderText(text);
-  else{document.getElementById('reader-upload-prompt').style.display='flex';document.getElementById('reader-content').style.display='none';document.getElementById('reader-info').textContent='No file loaded';document.getElementById('page-nav').classList.remove('visible');}
+  else{document.getElementById('reader-upload-prompt').style.display='flex';document.getElementById('reader-content').style.display='none';document.getElementById('reader-info').textContent='No file loaded';document.getElementById('page-nav').classList.remove('visible');hideNowReading();}
 }
-function closeReader(){stopReaderPlay();document.getElementById('reader-overlay').classList.remove('open');document.body.style.overflow='';}
+function closeReader(){stopReaderPlay();hideNowReading();document.getElementById('reader-overlay').classList.remove('open');document.body.style.overflow='';}
 function loadReaderText(text){
   stopReaderPlay();
-  R.sentences=splitIntoSentences(text);
+  R.rawText=text;
+  R.sentences=splitIntoSentenceRanges(text);
   R.wordCount=(text.match(/\S+/g)||[]).length;
   R.totalSents=R.sentences.length; updateInfo();
   renderFullText();
@@ -2543,18 +2587,15 @@ function loadReaderText(text){
   content._tapHandler=function(e){
     const sentWrap=e.target.closest('.rsent'); if(!sentWrap) return;
     const sIdx=parseInt(sentWrap.dataset.sidx,10);
-    const sp=e.target.closest('.rtok');
-    const toks=tokensForSentence(sIdx);
-    const tokIdx=sp?toks.findIndex(t=>t.el===sp):0;
     stopReaderPlay();
     setActiveSentence(sIdx,true);
-    playFromToken(Math.max(0,tokIdx));
+    playFromToken(0);
     showToast('Reading from here…');
   };
   content.addEventListener('click',content._tapHandler);
   const savedSent=Math.min(Math.max(parseInt(_dget(SENT_PFX+R.fileName)||'0',10),0),R.totalSents-1);
   setActiveSentence(savedSent,false);
-  requestAnimationFrame(()=>scrollSentenceToMiddle(savedSent));
+  requestAnimationFrame(()=>scrollSentenceIntoView(savedSent));
 }
 function updateInfo(){document.getElementById('reader-info').textContent=`${R.wordCount.toLocaleString()} words · ${R.totalSents} sentence${R.totalSents!==1?'s':''} · ${R.fileName}`;}
 function buildTasks(pageTokens,startIdx){
@@ -2569,7 +2610,7 @@ function runTasks(tasks){
     if(i<tasks.length){const task=tasks[i++];task.toks.forEach(t=>t.el.classList.add('rhl'));ttsSpeak(task.text,task.lang,next);}
     else{
       if(R.curSent<R.totalSents-1){
-        setActiveSentence(R.curSent+1,true); scrollSentenceToMiddle(R.curSent);
+        setActiveSentence(R.curSent+1,true); scrollSentenceIntoView(R.curSent);
         requestAnimationFrame(()=>requestAnimationFrame(()=>{
           if(!R.playing){btn.textContent='▶ Play';btn.classList.remove('playing');return;}
           const nextTasks=buildTasks(R.pageTokens,0);
@@ -2587,7 +2628,7 @@ function stopReaderPlay(){if(R.playing){ttsCancel();R.playing=false;}clearReader
 document.getElementById('reader-play-btn').addEventListener('click',function(){if(R.playing){stopReaderPlay();return;}if(!R.pageTokens.length){showToast('No text loaded!');return;}playFromToken(0);});
 function updateReaderProgress(){const progress=R.totalSents>1?(R.curSent+1)/R.totalSents:1;document.getElementById('reader-progress').style.width=(Math.min(progress,1)*100)+'%';}
 document.getElementById('reader-close-btn').addEventListener('click',closeReader);
-document.getElementById('font-size-range').addEventListener('input',function(){document.getElementById('reader-content').style.fontSize=this.value+'px';});
+document.getElementById('font-size-range').addEventListener('input',function(){document.getElementById('now-reading-text').style.fontSize=(parseInt(this.value,10)+9)+'px';document.getElementById('reader-content').style.fontSize=this.value+'px';});
 document.getElementById('speed-range').addEventListener('input',function(){ttsRate=parseFloat(this.value);});
 document.querySelectorAll('.theme-dot').forEach(dot=>{
   dot.addEventListener('click',function(){document.querySelectorAll('.theme-dot').forEach(d=>d.classList.remove('active'));this.classList.add('active');document.body.setAttribute('data-reader-theme',this.dataset.theme);});
