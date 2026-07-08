@@ -340,6 +340,8 @@ body.float-mode #float-speak-btn.active { background: #ffb300; color: #1a237e; }
 #reader-content .rtok { border-radius: 3px; padding: 0 2px; transition: background 0.1s; cursor: pointer; }
 #reader-content .rtok:hover { background: var(--tok-hover); }
 #reader-content .rtok.rhl { background: #ffe082; color: #111 !important; }
+#reader-content .rsent { border-radius: 4px; transition: background 0.2s; }
+#reader-content .rsent.rsent-active { background: rgba(255, 224, 130, 0.16); box-shadow: 0 0 0 2px rgba(255, 224, 130, 0.25); }
 #reader-upload-prompt { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 40px 20px; text-align: center; }
 #reader-upload-prompt .prompt-icon { font-size: 48px; }
 #reader-upload-prompt p { font-size: 15px; line-height: 1.5; max-width: 280px; color: var(--muted); }
@@ -629,7 +631,6 @@ body[data-reader-theme="sepia"] { --topbar-bg:#ede3cc; --settings-bg:#e8dcc4; --
   <div id="reader-settings">
     <div class="rs-group"><label>Size</label><input type="range" id="font-size-range" min="13" max="30" value="17" step="1"></div>
     <div class="rs-group"><label>Speed</label><input type="range" id="speed-range" min="0.5" max="2.0" value="0.88" step="0.05"></div>
-    <div class="rs-group"><label>Page</label><input type="range" id="page-size-range" min="100" max="1000" value="400" step="50"></div>
     <div class="rs-group"><label>Theme</label>
       <div id="reader-theme-btns">
         <div class="theme-dot active" data-theme="dark" style="background:#111;"></div>
@@ -641,7 +642,7 @@ body[data-reader-theme="sepia"] { --topbar-bg:#ede3cc; --settings-bg:#e8dcc4; --
   <div id="page-nav">
     <button class="pnav-btn" id="pg-first">⏮</button>
     <button class="pnav-btn" id="pg-prev">◀</button>
-    <span id="page-label">Page 1 / 1</span>
+    <span id="page-label">Sentence 1 / 1</span>
     <button class="pnav-btn" id="pg-next">▶</button>
     <button class="pnav-btn" id="pg-last">⏭</button>
     <input id="page-jump" type="number" min="1" placeholder="#">
@@ -649,7 +650,7 @@ body[data-reader-theme="sepia"] { --topbar-bg:#ede3cc; --settings-bg:#e8dcc4; --
   <div id="reader-content-wrap">
     <div id="reader-upload-prompt">
       <div class="prompt-icon">📖</div>
-      <p>Open a .txt, .html, .docx, or .pdf file. Huge files load instantly with page splitting.</p>
+      <p>Open a .txt, .html, .docx, or .pdf file. Shows the full page and reads one sentence at a time, remembering where you left off.</p>
       <button class="prompt-btn" id="reader-prompt-file-btn">Choose File</button>
     </div>
     <div id="reader-content" style="display:none"></div>
@@ -1133,7 +1134,7 @@ function _idbPut(db, key, value) {
 //  OEM builds (and on some WebView versions) it also wipes a WebView's
 //  localStorage, since browsers don't guarantee localStorage survives a
 //  cache clear the way IndexedDB does. Saved notes (SAVE_KEY) and reader
-//  page-position (PAGE_PFX) used to live ONLY in localStorage, so a
+//  sentence-position (SENT_PFX) used to live ONLY in localStorage, so a
 //  "clear cache" could silently erase them even though the user never
 //  touched "clear data".
 //
@@ -2432,67 +2433,98 @@ document.getElementById('fullscreen-btn').addEventListener('click',()=>{
 });
 
 // ══════════════════════════════════════════════════════════════════════
-//  HIGH-PERFORMANCE PAGINATED READER
+//  FULL-TEXT READER — shows the whole page, reads one sentence at a
+//  time, keeps the active sentence scrolled to the vertical middle,
+//  and remembers the exact sentence position per file.
 // ══════════════════════════════════════════════════════════════════════
-const R={fileName:'',allTokens:[],wordCount:0,pageTokens:[],curPage:0,totalPages:0,wordsPerPage:400,playing:false};
-const PAGE_PFX='rpage:';
-function parseAllTokens(text){
-  const tokens=[]; let wordIdx=0;
-  for(const p of text.split(/(\s+)/)){
+const R={fileName:'',sentences:[],wordCount:0,curSent:0,totalSents:0,sentEls:[],pageTokens:[],playing:false};
+const SENT_PFX='rsent:';
+// Splits raw text into sentences (Odia/Hindi danda ।॥ and . ! ? all count as enders).
+function splitIntoSentences(text){
+  const norm=text.replace(/\r\n/g,'\n').replace(/[ \t]+/g,' ').trim();
+  if(!norm) return [];
+  const paras=norm.split(/\n\s*\n/);
+  const out=[];
+  for(const para of paras){
+    let p=para.replace(/\n/g,' ').trim();
     if(!p) continue;
-    if(/^\s+$/.test(p)) tokens.push({text:p,isWord:false,lang:null,globalWordIdx:-1});
-    else tokens.push({text:p,isWord:true,lang:detectLang(p)||'en',globalWordIdx:wordIdx++});
+    // protect decimal points inside numbers (e.g. 3.5) so they aren't treated as sentence enders
+    p=p.replace(/(\d)\.(\d)/g,'$1\u0000$2');
+    const re=/[^.!?।॥]+[.!?।॥]+(?=\s|$)|[^.!?।॥]+$/g;
+    let m; let any=false;
+    while((m=re.exec(p))){
+      const s=m[0].trim().replace(/\u0000/g,'.');
+      if(!s) continue;
+      out.push(s); any=true;
+    }
+    if(!any && p) out.push(p.replace(/\u0000/g,'.'));
+  }
+  return out.length?out:[norm];
+}
+function tokenizeSentence(sentText){
+  const tokens=[];
+  for(const p of sentText.split(/(\s+)/)){
+    if(!p) continue;
+    if(/^\s+$/.test(p)) tokens.push({text:p,isWord:false,lang:null});
+    else tokens.push({text:p,isWord:true,lang:detectLang(p)||'en'});
   }
   return tokens;
 }
-function computePages(tokens,wpp){
-  const boundaries=[]; let wc=0,pageStart=-1;
-  for(let i=0;i<tokens.length;i++){
-    if(pageStart===-1) pageStart=i;
-    if(tokens[i].isWord&&++wc>=wpp){boundaries.push(pageStart);wc=0;pageStart=-1;}
-  }
-  if(pageStart!==-1) boundaries.push(pageStart);
-  if(!boundaries.length) boundaries.push(0);
-  return boundaries;
-}
-let _pageBounds=[0];
-function renderPage(pageIdx){
-  pageIdx=Math.max(0,Math.min(pageIdx,R.totalPages-1));
+// Renders the ENTIRE text once. Each sentence becomes a <span class="rsent">
+// wrapping word-<span class="rtok"> children (used for playback highlight).
+function renderFullText(){
   const content=document.getElementById('reader-content');
-  const startTok=_pageBounds[pageIdx],endTok=pageIdx+1<_pageBounds.length?_pageBounds[pageIdx+1]:R.allTokens.length;
-  const frag=document.createDocumentFragment(); R.pageTokens=[];
-  for(let i=startTok;i<endTok;i++){
-    const tok=R.allTokens[i];
-    if(!tok.isWord){frag.appendChild(document.createTextNode(tok.text));}
-    else{const sp=document.createElement('span');sp.className='rtok';sp.textContent=tok.text;R.pageTokens.push({el:sp,text:tok.text,lang:tok.lang,globalWordIdx:tok.globalWordIdx});frag.appendChild(sp);}
-  }
+  const frag=document.createDocumentFragment();
+  R.sentEls=[];
+  R.sentences.forEach((sentText,sIdx)=>{
+    const sentWrap=document.createElement('span');
+    sentWrap.className='rsent';
+    sentWrap.dataset.sidx=sIdx;
+    const toks=tokenizeSentence(sentText);
+    toks.forEach(tok=>{
+      if(!tok.isWord){sentWrap.appendChild(document.createTextNode(tok.text));}
+      else{const sp=document.createElement('span');sp.className='rtok';sp.textContent=tok.text;sentWrap.appendChild(sp);}
+    });
+    R.sentEls.push(sentWrap);
+    frag.appendChild(sentWrap);
+    frag.appendChild(document.createTextNode(' '));
+  });
   content.style.display='block'; document.getElementById('reader-upload-prompt').style.display='none';
   content.innerHTML=''; content.appendChild(frag);
-  R.curPage=pageIdx; document.getElementById('reader-content-wrap').scrollTop=0;
-  updatePageNav(); updateReaderProgress(); _dset(PAGE_PFX+R.fileName,pageIdx);
+}
+// Collects the word-token spans belonging to one sentence element (for TTS/highlight).
+function tokensForSentence(sentIdx){
+  const wrap=R.sentEls[sentIdx]; if(!wrap) return [];
+  return Array.from(wrap.querySelectorAll('.rtok')).map(el=>({el,text:el.textContent,lang:detectLang(el.textContent)||'en'}));
+}
+function scrollSentenceToMiddle(sentIdx){
+  const wrap=R.sentEls[sentIdx]; if(!wrap) return;
+  wrap.scrollIntoView({block:'center',behavior:'smooth'});
+}
+function setActiveSentence(sentIdx,save){
+  sentIdx=Math.max(0,Math.min(sentIdx,R.totalSents-1));
+  R.sentEls.forEach((el,i)=>el.classList.toggle('rsent-active',i===sentIdx));
+  R.curSent=sentIdx; R.pageTokens=tokensForSentence(sentIdx);
+  updatePageNav(); updateReaderProgress();
+  if(save) _dset(SENT_PFX+R.fileName,sentIdx);
+}
+function goToSentence(sentIdx){
+  setActiveSentence(sentIdx,true);
+  scrollSentenceToMiddle(sentIdx);
 }
 function updatePageNav(){
   const nav=document.getElementById('page-nav');
-  if(R.totalPages<=1){nav.classList.remove('visible');return;} nav.classList.add('visible');
-  document.getElementById('page-label').textContent=`Page ${R.curPage+1} / ${R.totalPages}`;
-  document.getElementById('pg-first').disabled=R.curPage===0; document.getElementById('pg-prev').disabled=R.curPage===0;
-  document.getElementById('pg-next').disabled=R.curPage>=R.totalPages-1; document.getElementById('pg-last').disabled=R.curPage>=R.totalPages-1;
+  if(R.totalSents<=1){nav.classList.remove('visible');return;} nav.classList.add('visible');
+  document.getElementById('page-label').textContent=`Sentence ${R.curSent+1} / ${R.totalSents}`;
+  document.getElementById('pg-first').disabled=R.curSent===0; document.getElementById('pg-prev').disabled=R.curSent===0;
+  document.getElementById('pg-next').disabled=R.curSent>=R.totalSents-1; document.getElementById('pg-last').disabled=R.curSent>=R.totalSents-1;
 }
-function navToPage(idx){const wasPlaying=R.playing;stopReaderPlay();renderPage(idx);if(wasPlaying&&R.pageTokens.length) setTimeout(()=>playFromToken(0),60);}
+function navToPage(idx){const wasPlaying=R.playing;stopReaderPlay();goToSentence(idx);if(wasPlaying&&R.pageTokens.length) setTimeout(()=>playFromToken(0),60);}
 document.getElementById('pg-first').addEventListener('click',()=>navToPage(0));
-document.getElementById('pg-prev').addEventListener('click',()=>navToPage(R.curPage-1));
-document.getElementById('pg-next').addEventListener('click',()=>navToPage(R.curPage+1));
-document.getElementById('pg-last').addEventListener('click',()=>navToPage(R.totalPages-1));
-document.getElementById('page-jump').addEventListener('change',function(){const v=parseInt(this.value,10);if(!isNaN(v)) navToPage(Math.max(0,Math.min(R.totalPages-1,v-1)));this.value='';});
-document.getElementById('page-size-range').addEventListener('input',function(){
-  if(!R.allTokens.length) return;
-  const firstGlobalWordIdx=R.pageTokens[0]?.globalWordIdx??0;
-  R.wordsPerPage=parseInt(this.value,10);
-  _pageBounds=computePages(R.allTokens,R.wordsPerPage); R.totalPages=_pageBounds.length;
-  let targetPage=0;
-  for(let p=_pageBounds.length-1;p>=0;p--){let ti=_pageBounds[p];while(ti<R.allTokens.length&&!R.allTokens[ti].isWord) ti++;if(ti<R.allTokens.length&&R.allTokens[ti].globalWordIdx<=firstGlobalWordIdx){targetPage=p;break;}}
-  stopReaderPlay(); renderPage(targetPage); updateInfo();
-});
+document.getElementById('pg-prev').addEventListener('click',()=>navToPage(R.curSent-1));
+document.getElementById('pg-next').addEventListener('click',()=>navToPage(R.curSent+1));
+document.getElementById('pg-last').addEventListener('click',()=>navToPage(R.totalSents-1));
+document.getElementById('page-jump').addEventListener('change',function(){const v=parseInt(this.value,10);if(!isNaN(v)) navToPage(Math.max(0,Math.min(R.totalSents-1,v-1)));this.value='';});
 function openReader(text,name){
   R.fileName=name||'Reader'; document.getElementById('reader-title').textContent=R.fileName;
   document.getElementById('reader-overlay').classList.add('open'); document.body.style.overflow='hidden';
@@ -2502,15 +2534,29 @@ function openReader(text,name){
 function closeReader(){stopReaderPlay();document.getElementById('reader-overlay').classList.remove('open');document.body.style.overflow='';}
 function loadReaderText(text){
   stopReaderPlay();
-  R.allTokens=parseAllTokens(text); R.wordCount=R.allTokens.filter(t=>t.isWord).length;
-  _pageBounds=computePages(R.allTokens,R.wordsPerPage); R.totalPages=_pageBounds.length; updateInfo();
+  R.sentences=splitIntoSentences(text);
+  R.wordCount=(text.match(/\S+/g)||[]).length;
+  R.totalSents=R.sentences.length; updateInfo();
+  renderFullText();
   const content=document.getElementById('reader-content');
   if(content._tapHandler) content.removeEventListener('click',content._tapHandler);
-  content._tapHandler=function(e){const sp=e.target.closest('.rtok');if(!sp) return;const idx=R.pageTokens.findIndex(t=>t.el===sp);if(idx<0) return;stopReaderPlay();playFromToken(idx);showToast('Reading from here…');};
+  content._tapHandler=function(e){
+    const sentWrap=e.target.closest('.rsent'); if(!sentWrap) return;
+    const sIdx=parseInt(sentWrap.dataset.sidx,10);
+    const sp=e.target.closest('.rtok');
+    const toks=tokensForSentence(sIdx);
+    const tokIdx=sp?toks.findIndex(t=>t.el===sp):0;
+    stopReaderPlay();
+    setActiveSentence(sIdx,true);
+    playFromToken(Math.max(0,tokIdx));
+    showToast('Reading from here…');
+  };
   content.addEventListener('click',content._tapHandler);
-  const savedPage=Math.min(parseInt(_dget(PAGE_PFX+R.fileName)||'0',10),R.totalPages-1); renderPage(savedPage);
+  const savedSent=Math.min(Math.max(parseInt(_dget(SENT_PFX+R.fileName)||'0',10),0),R.totalSents-1);
+  setActiveSentence(savedSent,false);
+  requestAnimationFrame(()=>scrollSentenceToMiddle(savedSent));
 }
-function updateInfo(){document.getElementById('reader-info').textContent=`${R.wordCount.toLocaleString()} words · ${R.totalPages} page${R.totalPages!==1?'s':''} · ${R.fileName}`;}
+function updateInfo(){document.getElementById('reader-info').textContent=`${R.wordCount.toLocaleString()} words · ${R.totalSents} sentence${R.totalSents!==1?'s':''} · ${R.fileName}`;}
 function buildTasks(pageTokens,startIdx){
   const tasks=[]; let chunk=[],chunkLang=null;
   const flush=()=>{if(!chunk.length) return;const text=filterForLang(chunk.map(t=>t.text).join(' '),chunkLang);if(text) tasks.push({text,lang:chunkLang,toks:[...chunk]});chunk=[];chunkLang=null;};
@@ -2520,9 +2566,17 @@ function runTasks(tasks){
   const btn=document.getElementById('reader-play-btn'); let i=0;
   function next(){
     clearReaderHL(); if(!R.playing){R.playing=false;btn.textContent='▶ Play';btn.classList.remove('playing');return;}
-    if(i<tasks.length){const task=tasks[i++];task.toks.forEach(t=>t.el.classList.add('rhl'));task.toks[0].el.scrollIntoView({block:'center',behavior:'smooth'});ttsSpeak(task.text,task.lang,next);}
+    if(i<tasks.length){const task=tasks[i++];task.toks.forEach(t=>t.el.classList.add('rhl'));ttsSpeak(task.text,task.lang,next);}
     else{
-      if(R.curPage<R.totalPages-1){renderPage(R.curPage+1);requestAnimationFrame(()=>requestAnimationFrame(()=>{if(!R.playing){btn.textContent='▶ Play';btn.classList.remove('playing');return;}const nextTasks=buildTasks(R.pageTokens,0);if(nextTasks.length){tasks.length=0;nextTasks.forEach(t=>tasks.push(t));i=0;next();}else{R.playing=false;btn.textContent='▶ Play';btn.classList.remove('playing');}}));}
+      if(R.curSent<R.totalSents-1){
+        setActiveSentence(R.curSent+1,true); scrollSentenceToMiddle(R.curSent);
+        requestAnimationFrame(()=>requestAnimationFrame(()=>{
+          if(!R.playing){btn.textContent='▶ Play';btn.classList.remove('playing');return;}
+          const nextTasks=buildTasks(R.pageTokens,0);
+          if(nextTasks.length){tasks.length=0;nextTasks.forEach(t=>tasks.push(t));i=0;next();}
+          else{R.playing=false;btn.textContent='▶ Play';btn.classList.remove('playing');}
+        }));
+      }
       else{R.playing=false;btn.textContent='▶ Play';btn.classList.remove('playing');showToast('✓ Finished reading');}
     }
   } next();
@@ -2531,8 +2585,7 @@ function playFromToken(tokIdx){if(!R.pageTokens.length) return;const tasks=build
 function clearReaderHL(){R.pageTokens.forEach(t=>t.el.classList.remove('rhl'));}
 function stopReaderPlay(){if(R.playing){ttsCancel();R.playing=false;}clearReaderHL();const btn=document.getElementById('reader-play-btn');btn.textContent='▶ Play';btn.classList.remove('playing');}
 document.getElementById('reader-play-btn').addEventListener('click',function(){if(R.playing){stopReaderPlay();return;}if(!R.pageTokens.length){showToast('No text loaded!');return;}playFromToken(0);});
-function updateReaderProgress(){const wrap=document.getElementById('reader-content-wrap');const max=wrap.scrollHeight-wrap.clientHeight;const intraScroll=max>0?wrap.scrollTop/max:0;const progress=R.totalPages>1?(R.curPage+intraScroll)/R.totalPages:intraScroll;document.getElementById('reader-progress').style.width=(Math.min(progress,1)*100)+'%';}
-document.getElementById('reader-content-wrap').addEventListener('scroll',updateReaderProgress);
+function updateReaderProgress(){const progress=R.totalSents>1?(R.curSent+1)/R.totalSents:1;document.getElementById('reader-progress').style.width=(Math.min(progress,1)*100)+'%';}
 document.getElementById('reader-close-btn').addEventListener('click',closeReader);
 document.getElementById('font-size-range').addEventListener('input',function(){document.getElementById('reader-content').style.fontSize=this.value+'px';});
 document.getElementById('speed-range').addEventListener('input',function(){ttsRate=parseFloat(this.value);});
