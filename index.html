@@ -101,6 +101,7 @@
     { key: 'asset:pako',         url: 'https://cdnjs.cloudflare.com/ajax/libs/pako/2.0.4/pako.min.js',            type: 'js'   },
     { key: 'asset:sqljs',        url: 'https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/sql-wasm.min.js',      type: 'js'   },
     { key: 'asset:sqlwasm',      url: 'https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/sql-wasm.wasm',        type: 'wasm' },
+    { key: 'asset:xzdecompress', url: 'https://cdn.jsdelivr.net/npm/xz-decompress@0.2.3/+esm',                    type: 'esm'  },
   ];
 
   function openIDB() {
@@ -144,12 +145,32 @@
     document.head.appendChild(s);
   }
 
+  // Minimal progress overlay used during first-run CDN asset downloads.
+  // Separate from the full-screen one defined later in the page JS —
+  // this one is created before the rest of the app is ready.
+  function _showBootProgress(msg) {
+    var el = document.getElementById('_boot_progress');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = '_boot_progress';
+      el.style.cssText = 'position:fixed;inset:0;z-index:999999;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(13,71,161,0.93);color:#fff;font-family:Segoe UI,sans-serif;gap:10px;';
+      el.innerHTML = '<div style="font-size:14px;font-weight:700;" id="_boot_msg"></div><div style="font-size:11px;opacity:.7">Only needed once — saved for offline use</div>';
+      document.body ? document.body.appendChild(el) : document.addEventListener('DOMContentLoaded', function(){ document.body.appendChild(el); });
+    }
+    document.getElementById('_boot_msg').textContent = msg;
+  }
+  function _hideBootProgress() {
+    var el = document.getElementById('_boot_progress');
+    if (el) el.style.display = 'none';
+  }
+
   window._assetsReady = (async function() {
     var db = await openIDB();
     for (var i = 0; i < CDN_ASSETS.length; i++) {
       var asset = CDN_ASSETS[i];
       var cached = await idbGet(db, ASSET_STORE, asset.key);
       if (!cached) {
+        _showBootProgress('Downloading ' + asset.key.replace('asset:','') + '… (' + (i+1) + '/' + CDN_ASSETS.length + ')');
         var resp = await fetch(asset.url);
         if (!resp.ok) throw new Error('Failed to fetch ' + asset.url);
         var buf = await resp.arrayBuffer();
@@ -160,12 +181,55 @@
         var code = new TextDecoder().decode(new Uint8Array(cached));
         injectJS(code);
       }
+      // ESM assets are stored as raw bytes; we create a Blob URL from
+      // the cached bytes at runtime so dynamic import() works offline.
+      // Nothing is injected here — the Blob URL is used later by _xzModulePromise.
     }
     window._sqlWasmUrl = await (async function() {
       var wasmBuf = await idbGet(db, ASSET_STORE, 'asset:sqlwasm');
       if (!wasmBuf) return null;
       return URL.createObjectURL(new Blob([wasmBuf], { type: 'application/wasm' }));
     })();
+
+    // Build a Blob URL for the cached xz-decompress ESM module so that
+    // dynamic import() works fully offline (no CDN fetch after first load).
+    // Falls back to the live CDN URL only when the cached bytes aren't found.
+    window._xzModulePromise = (async function() {
+      var xzBuf = await idbGet(db, ASSET_STORE, 'asset:xzdecompress');
+      var importUrl;
+      if (xzBuf) {
+        var xzCode = new TextDecoder().decode(new Uint8Array(xzBuf));
+        importUrl = URL.createObjectURL(new Blob([xzCode], { type: 'application/javascript' }));
+      } else {
+        // Cache miss on first load (unlikely — the loop above fetches it) or
+        // storage error: fall back to CDN so the app still works online.
+        importUrl = 'https://cdn.jsdelivr.net/npm/xz-decompress@0.2.3/+esm';
+      }
+      return import(importUrl).catch(function(e) {
+        console.error('xz-decompress module import failed:', e);
+        throw new Error('xz-module-load-failed: ' + (e && e.message ? e.message : e));
+      });
+    })();
+
+    window._xzDecompress = async function(uint8) {
+      var mod;
+      try {
+        mod = await window._xzModulePromise;
+      } catch (e) {
+        throw new Error('xz-import-error: ' + (e && e.message ? e.message : e));
+      }
+      var XzReadableStream = mod && (mod.XzReadableStream || (mod.default && mod.default.XzReadableStream));
+      if (!XzReadableStream) throw new Error('xz-module-shape-error: XzReadableStream not found on module');
+      try {
+        var stream = new Blob([uint8]).stream();
+        var decompressedResponse = new Response(new XzReadableStream(stream));
+        var ab = await decompressedResponse.arrayBuffer();
+        return new Uint8Array(ab);
+      } catch (e) {
+        throw new Error('xz-decode-error: ' + (e && e.message ? e.message : e));
+      }
+    };
+    _hideBootProgress();
     window._ensurePdfJs = async function() {
       if (window.pdfjsLib) return;
       var pdfAssets = [
@@ -1086,12 +1150,12 @@ async function extractPdf(file) {
 //  DATABASE
 // ══════════════════════════════════════════════════════════════════════
 const DB_URLS = {
-  eo: 'https://raw.githubusercontent.com/abhayattcc/English-Hindi-Odia-Picture-Dictionary/refs/heads/main/data/english_odia.db.gz',
-  eh: 'https://raw.githubusercontent.com/abhayattcc/English-Hindi-Odia-Picture-Dictionary/refs/heads/main/data/english_hindi.db1.gz',
-  om: 'https://raw.githubusercontent.com/abhayattcc/English-Hindi-Odia-Picture-Dictionary/refs/heads/main/data/odia_meaning.db.gz',
-  en: 'https://raw.githubusercontent.com/abhayattcc/English-Hindi-Odia-Picture-Dictionary/refs/heads/main/data/english.db.gz'
+  eo: 'https://raw.githubusercontent.com/abhayattcc/English-Hindi-Odia-Picture-Dictionary/refs/heads/main/data/english_odia.db.xz',
+  eh: 'https://raw.githubusercontent.com/abhayattcc/English-Hindi-Odia-Picture-Dictionary/refs/heads/main/data/english_hindi.db.xz',
+  om: 'https://raw.githubusercontent.com/abhayattcc/English-Hindi-Odia-Picture-Dictionary/refs/heads/main/data/odia_meaning.db.xz',
+  en: 'https://raw.githubusercontent.com/abhayattcc/English-Hindi-Odia-Picture-Dictionary/refs/heads/main/data/english.db.xz'
 };
-const DB_VERSION = 'v3';
+const DB_VERSION = 'v4';
 const IDB_NAME = 'dict-store';
 const IDB_STORE = 'files';
 const IDB_WORDS_STORE = 'custom_words';
@@ -1249,11 +1313,19 @@ function _hideProgress() {
   if (_progressEl) _progressEl.style.display = 'none';
 }
 
+// Dictionary DBs are stored in IndexedDB in their .xz-COMPRESSED form permanently.
+// This keeps IndexedDB usage identical to the compressed download size (no size barrier
+// from storing an inflated copy). Once cached, the .xz URL is never fetched again —
+// every subsequent app load decompresses in-memory from the cached compressed bytes.
 async function loadDB(key, url) {
   const idb = await _openIDB();
   const cacheKey = key + ':' + DB_VERSION;
   const cached = await _idbGet(idb, cacheKey);
-  if (cached) return pako.ungzip(new Uint8Array(cached));
+  if (cached) {
+    // Permanent path: decompress cached .xz bytes in memory, no network involved.
+    return await window._xzDecompress(new Uint8Array(cached));
+  }
+  // First-run only: download the .xz file once.
   _showProgress('Downloading ' + key.toUpperCase() + ' dictionary…', 0);
   const resp = await fetch(url);
   if (!resp.ok) throw new Error('HTTP ' + resp.status);
@@ -1276,9 +1348,11 @@ async function loadDB(key, url) {
     buffer = new Uint8Array(ab);
   }
   _showProgress('Saving ' + key.toUpperCase() + ' dictionary…', 95);
+  // Store the COMPRESSED (.xz) bytes as-is — same size as the downloaded file,
+  // not the inflated SQLite DB. This is the permanent on-device copy.
   await _idbPut(idb, cacheKey, buffer.buffer);
   _showProgress('Done', 100);
-  return pako.ungzip(buffer);
+  return await window._xzDecompress(buffer);
 }
 
 async function initDB() {
@@ -1295,7 +1369,8 @@ async function initDB() {
     if (pendingWord) { showPopup(pendingWord); pendingWord = null; }
   } catch(e) {
     _hideProgress();
-    document.getElementById('status').textContent = '⚠️ Dictionary offline';
+    console.error('initDB failed:', e);
+    document.getElementById('status').textContent = '⚠️ Dictionary offline: ' + (e && e.message ? e.message : e);
   }
 }
 async function loadOdiaDB() {
