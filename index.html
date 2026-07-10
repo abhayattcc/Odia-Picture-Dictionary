@@ -4,26 +4,26 @@
 <meta charset="UTF-8">
 <meta name="google-site-verification" content="ay9DBZ0Br1PkKUxOuu-02tdmh8L7i-7HOK0gy8OH_As" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Odia Picture Dictionary — Free Online Odia Picture Dictionary with English &amp; Hindi</title>
-<meta name="description" content="Odia Picture Dictionary — free, offline trilingual picture dictionary for Odia (ଓଡ଼ିଆ), English &amp; Hindi. Search any word, see picture cards, hear native pronunciation. No signup, no ads, 100% offline.">
-<meta name="keywords" content="odia picture dictionary, odia picture dictionary online, odia picture dictionary free, odia picture dictionary offline, english odia picture dictionary, hindi odia picture dictionary, english hindi odia picture dictionary, odia dictionary, odia dictionary offline, odia to english dictionary, odia dictionary app, learn odia online, odia vocabulary, odia script learning, odia text to speech, odia tts, odia words with pictures, odia for kids, odia language learning, odia english hindi translator, trilingual picture dictionary, ଓଡ଼ିଆ ଅଭିଧାନ">
-<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
+<title>Odia Picture Dictionary | English Hindi Odia Picture Dictionary — Free Offline</title>
+<meta name="description" content="Free Odia Picture Dictionary with English &amp; Hindi — search any word in ଓଡ଼ିଆ, English or हिंदी, see picture references, and hear native pronunciation. 100% offline, no signup, no ads blocking search.">
+<meta name="keywords" content="odia picture dictionary, english picture dictionary, hindi picture dictionary, english hindi odia dictionary, odia dictionary offline, odia to english dictionary, hindi to odia dictionary, learn odia online, odia vocabulary tool, odia text to speech">
+<meta name="robots" content="index, follow, max-image-preview:large">
 <meta name="author" content="Abhaya">
 <link rel="canonical" href="https://abhayattcc.github.io/Odia-Picture-Dictionary/">
 
 <!-- Open Graph / Facebook / WhatsApp preview -->
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://abhayattcc.github.io/Odia-Picture-Dictionary/">
-<meta property="og:title" content="Odia Picture Dictionary — Free Online Odia Picture Dictionary with English &amp; Hindi">
-<meta property="og:description" content="The best free Odia Picture Dictionary online. Search words in Odia (ଓଡ଼ିଆ), English or Hindi, see picture cards, hear native pronunciation. 100% offline, no signup, no ads.">
+<meta property="og:title" content="Odia Picture Dictionary — Free English Hindi Odia Picture Dictionary">
+<meta property="og:description" content="Search any word in Odia, English or Hindi with picture references and voice pronunciation. 100% free, offline, no signup required.">
 <meta property="og:image" content="https://abhayattcc.github.io/Odia-Picture-Dictionary/icon-192.png">
 <meta property="og:locale" content="en_IN">
 <meta property="og:site_name" content="Odia Picture Dictionary">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="Odia Picture Dictionary — Free Online Odia Picture Dictionary with English &amp; Hindi">
-<meta name="twitter:description" content="The best free Odia Picture Dictionary online. Search words in Odia, English or Hindi, see picture cards, hear pronunciation. 100% offline, no signup, no ads.">
+<meta name="twitter:title" content="Odia Picture Dictionary — Free English Hindi Odia Picture Dictionary">
+<meta name="twitter:description" content="Search any word in Odia, English or Hindi with picture references and voice pronunciation. 100% free, offline, no signup required.">
 <meta name="twitter:image" content="https://abhayattcc.github.io/Odia-Picture-Dictionary/icon-192.png">
 
 <link rel="manifest" href="manifest.json">
@@ -37,11 +37,11 @@
   "@context": "https://schema.org",
   "@type": "WebApplication",
   "name": "Odia Picture Dictionary",
-  "alternateName": ["English Hindi Odia Picture Dictionary", "English Odia Picture Dictionary", "Hindi Odia Picture Dictionary", "English Picture Dictionary", "Hindi Picture Dictionary", "ଓଡ଼ିଆ ଅଭିଧାନ"],
+  "alternateName": ["English Hindi Odia Picture Dictionary", "English Picture Dictionary", "Hindi Picture Dictionary"],
   "url": "https://abhayattcc.github.io/Odia-Picture-Dictionary/",
   "applicationCategory": "EducationalApplication",
   "operatingSystem": "Any (Web Browser)",
-  "description": "Odia Picture Dictionary — the best free online Odia picture dictionary with English and Hindi. Search words in Odia (ଓଡ଼ିଆ), English or Hindi, see picture cards, hear native text-to-speech pronunciation. 100% offline, no signup, no ads.",
+  "description": "Free offline picture dictionary for English, Hindi and Odia (ଓଡ଼ିଆ) with text-to-speech pronunciation, image search, and a full-screen reader.",
   "inLanguage": ["en", "hi", "or"],
   "isAccessibleForFree": true,
   "offers": {
@@ -400,7 +400,16 @@ body.float-mode #float-speak-btn.active { background: #ffb300; color: #1a237e; }
 #reader-content-wrap { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 18px 16px 40px; background: var(--content-bg); }
 #reader-content { max-width: 700px; margin: 0 auto; line-height: 1.9; white-space: pre-wrap; word-break: break-word; font-size: 17px; color: var(--text); font-family: 'Georgia','Noto Serif',serif; animation: pageFade 0.16s ease; }
 @keyframes pageFade { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:translateY(0); } }
-#reader-content .rsent { border-radius: 4px; cursor: pointer; }
+#reader-content .rsent { border-radius: 4px; cursor: pointer; transition: background 0.15s, color 0.15s; }
+/* The sentence currently being read/spoken, highlighted in place over the
+   real, unmodified page layout — no separate popup, no dimming. */
+#reader-content .rsent.rhl-active { background: #ffe082; color: #111; box-shadow: 0 0 0 2px #ffca28; }
+body[data-reader-theme="dark"] #reader-content .rsent.rhl-active { background: #ffca28; color: #111; }
+/* Renders a lone form-feed (page-break marker inserted between extracted
+   PDF pages) as a clear horizontal divider instead of an invisible control
+   character, so page boundaries are visible just like flipping a page. */
+#reader-content .rpagebreak { display: block; margin: 22px 0; border: 0; border-top: 1px dashed var(--border); text-align: center; }
+#reader-content .rpagebreak::after { content: "· · ·"; display: inline-block; position: relative; top: -10px; padding: 0 10px; background: var(--content-bg); color: var(--muted); font-size: 12px; letter-spacing: 3px; }
 #reader-upload-prompt { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 40px 20px; text-align: center; }
 #reader-upload-prompt .prompt-icon { font-size: 48px; }
 #reader-upload-prompt p { font-size: 15px; line-height: 1.5; max-width: 280px; color: var(--muted); }
@@ -408,18 +417,10 @@ body.float-mode #float-speak-btn.active { background: #ffb300; color: #1a237e; }
 #reader-info { padding: 4px 12px; flex-shrink: 0; background: var(--settings-bg); border-top: 1px solid var(--border); font-size: 10px; color: var(--muted); text-align: center; }
 #reader-progress { height: 2px; background: #00bfa5; width: 0%; position: fixed; top: 0; left: 0; z-index: 10001; transition: width 0.2s; }
 
-/* ── Big-text "Now Reading" overlay — pinned to vertical middle of screen,
-     shows only the sentence currently being read/highlighted, in large type. ── */
-#now-reading { display: none; position: fixed; left: 0; right: 0; top: 50%; transform: translateY(-50%); z-index: 10000; padding: 0 18px; pointer-events: none; }
-#now-reading.visible { display: flex; }
-#now-reading-inner { margin: 0 auto; max-width: 720px; width: 100%; background: var(--nr-bg); border: 1px solid var(--nr-border); border-radius: 18px; padding: 22px 22px; box-shadow: 0 12px 40px rgba(0,0,0,0.35); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
-#now-reading-text { font-size: 26px; line-height: 1.6; text-align: center; color: var(--text); font-family: 'Georgia','Noto Serif',serif; white-space: pre-wrap; word-break: break-word; }
-#now-reading-text .rtok { border-radius: 4px; padding: 0 3px; transition: background 0.1s; }
-#now-reading-text .rtok.rhl { background: #ffe082; color: #111 !important; }
-body[data-reader-theme="dark"]  #now-reading-inner { --nr-bg: rgba(20,20,20,0.92); --nr-border: rgba(255,255,255,0.08); }
-body[data-reader-theme="light"] #now-reading-inner { --nr-bg: rgba(255,255,255,0.94); --nr-border: rgba(0,0,0,0.08); }
-body[data-reader-theme="sepia"] #now-reading-inner { --nr-bg: rgba(245,236,215,0.95); --nr-border: rgba(59,47,18,0.12); }
-#reader-content-wrap.dimmed #reader-content { opacity: 0.35; transition: opacity 0.2s; }
+/* NOTE: the reader previously showed a separate "Now Reading" popup with
+   word-by-word highlighting over a dimmed background. That overlay has
+   been removed — reading position is now shown by highlighting the active
+   sentence directly in the real page layout (see .rsent.rhl-active above). */
 
 /* THEMES */
 body[data-reader-theme="dark"]  { --topbar-bg:#1a1a1a; --settings-bg:#161616; --content-bg:#111; --text:#ddd; --muted:#666; --border:#2a2a2a; --btn-bg:#2a2a2a; --tok-hover:rgba(0,191,165,0.18); }
@@ -581,26 +582,22 @@ body[data-reader-theme="sepia"] { --topbar-bg:#ede3cc; --settings-bg:#e8dcc4; --
      Positioned off-screen (not display:none) which is the standard accessible way to
      provide indexable copy for a JS-heavy single-page app. -->
 <div style="position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;">
-  <h1>Odia Picture Dictionary — Free Online Odia Picture Dictionary with English and Hindi</h1>
-  <p>The <strong>Odia Picture Dictionary</strong> is the best free online <strong>Odia Picture Dictionary</strong> with English and Hindi support. Search any word in Odia (ଓଡ଼ିଆ), English, or Hindi (हिंदी) and instantly see picture cards with native text-to-speech pronunciation. This <strong>free Odia Picture Dictionary</strong> works 100% offline after first load — no signup, no ads, no installation needed. Also works as a standalone <strong>English Picture Dictionary</strong> and <strong>Hindi Picture Dictionary</strong>, and includes a dedicated Odia-to-Odia meaning dictionary (ଓଡ଼ିଆ ଅଭିଧାନ).</p>
+  <h1>Odia Picture Dictionary — Free English Hindi Odia Picture Dictionary</h1>
+  <p>The <strong>Odia Picture Dictionary</strong> is a free, 100% offline <strong>English Hindi Odia Picture Dictionary</strong> for students, kids and language learners. Search any word in English, Hindi (हिंदी) or Odia (ଓଡ଼ିଆ) and instantly see picture references with native text-to-speech pronunciation. Try our <strong>English Picture Dictionary</strong> and <strong>Hindi Picture Dictionary</strong> modes, or switch to the dedicated Odia-to-Odia meaning dictionary. No signup, no installation — works fully offline after the first visit.</p>
   <nav aria-label="Dictionary sections">
     <a href="https://abhayattcc.github.io/Odia-Picture-Dictionary/">Odia Picture Dictionary Home</a>
-    <a href="https://abhayattcc.github.io/Odia-Picture-Dictionary/#search">Search Odia Picture Dictionary — English Hindi Odia Words</a>
-    <a href="https://abhayattcc.github.io/Odia-Picture-Dictionary/#odia-dictionary">Odia to Odia Dictionary — ଓଡ଼ିଆ ଅଭିଧାନ</a>
-    <a href="https://abhayattcc.github.io/Odia-Picture-Dictionary/#reader">Offline Odia Text Reader with Text-to-Speech</a>
+    <a href="https://abhayattcc.github.io/Odia-Picture-Dictionary/#search">Search English Hindi Odia Words</a>
+    <a href="https://abhayattcc.github.io/Odia-Picture-Dictionary/#odia-dictionary">Odia to Odia Dictionary</a>
+    <a href="https://abhayattcc.github.io/Odia-Picture-Dictionary/#reader">Offline Text Reader with Text-to-Speech</a>
   </nav>
-  <h2>Why use the Odia Picture Dictionary?</h2>
+  <h2>Why use this Odia Picture Dictionary?</h2>
   <ul>
-    <li>Free Odia Picture Dictionary — no payment, no subscription, no signup required</li>
-    <li>Trilingual search across Odia, English, and Hindi with automatic script detection</li>
-    <li>Picture-based word cards — the best way for kids to learn Odia vocabulary visually</li>
-    <li>Native Odia, English, and Hindi pronunciation using built-in text-to-speech</li>
-    <li>Fully offline after first load — the complete Odia dictionary works without internet</li>
-    <li>Dedicated Odia-to-Odia meaning dictionary for native Odia word definitions</li>
-    <li>Useful for Odisha competitive exams (OPSC, Odisha Police SI) and Odia language learning</li>
+    <li>Trilingual search across English, Hindi and Odia with auto script detection</li>
+    <li>Picture-based word cards so children learn vocabulary visually</li>
+    <li>Native pronunciation for every word using text-to-speech</li>
+    <li>Fully offline after first load — your searches stay private on your device</li>
+    <li>Free, no ads blocking search results, no login required</li>
   </ul>
-  <h2>What is an Odia Picture Dictionary?</h2>
-  <p>An <strong>Odia Picture Dictionary</strong> pairs Odia words with images, audio pronunciation, and cross-language meanings in English and Hindi. This free online Odia Picture Dictionary is ideal for students, kids, and anyone learning Odia script and vocabulary. It is the most complete free Odia Picture Dictionary available online, covering over 35 million Odia speakers across Odisha and the world.</p>
 </div>
 
 <div id="reader-progress"></div>
@@ -730,7 +727,7 @@ body[data-reader-theme="sepia"] { --topbar-bg:#ede3cc; --settings-bg:#e8dcc4; --
     </div>
     <div id="reader-content" style="display:none"></div>
   </div>
-  <div id="now-reading"><div id="now-reading-inner"><div id="now-reading-text"></div></div></div>
+
   <div id="reader-info">No file loaded</div>
 </div>
 
@@ -1112,10 +1109,53 @@ async function extractPdf(file) {
   }
   try{
     const buf=await readAsArrayBuffer(file),pdf=await window.pdfjsLib.getDocument({data:buf}).promise;
-    let out='';
-    for(let p=1;p<=pdf.numPages;p++){const page=await pdf.getPage(p),tc=await page.getTextContent();out+=tc.items.map(i=>i.str).join(' ')+'\n\n';}
+    const pageTexts=[];
+    for(let p=1;p<=pdf.numPages;p++){
+      const page=await pdf.getPage(p),tc=await page.getTextContent();
+      pageTexts.push(reconstructPageLayout(tc.items));
+    }
+    // Join pages with a page-break marker (form-feed) so each original PDF
+    // page stays its own distinct block in the reader, matching how the
+    // source document is actually laid out page by page.
+    const out=pageTexts.map((t)=>t||'').join('\n\n\f\n\n');
     return out.trim()||'(No text found in PDF)';
   }catch(e){return '(PDF error: '+e.message+')';}
+}
+// Rebuilds a page's visual line structure from pdf.js text items using each
+// item's Y position (line grouping) and X position (left-to-right order +
+// gap detection), so headings, paragraphs, list items, and answer choices
+// come out on their own lines just like the original PDF page — instead of
+// pdf.js's raw item order being flattened into one long space-joined blob.
+function reconstructPageLayout(items){
+  if(!items||!items.length) return '';
+  const rows=[];
+  const Y_TOL=2.5; // px tolerance for "same line"
+  items.forEach(it=>{
+    if(!it.str) return;
+    const y=it.transform ? it.transform[5] : 0;
+    const x=it.transform ? it.transform[4] : 0;
+    let row=rows.find(r=>Math.abs(r.y-y)<=Y_TOL);
+    if(!row){row={y,items:[]};rows.push(row);}
+    row.items.push({x,str:it.str,w:it.width||0});
+  });
+  // Sort rows top-to-bottom (PDF Y grows upward, so descending Y = reading order).
+  rows.sort((a,b)=>b.y-a.y);
+  const lines=rows.map(row=>{
+    row.items.sort((a,b)=>a.x-b.x);
+    let line='',lastEnd=null;
+    row.items.forEach(it=>{
+      if(lastEnd!==null){
+        const gap=it.x-lastEnd;
+        // Insert a space between fragments pdf.js split apart (e.g. across
+        // font runs) whenever there's a visible gap, so words don't fuse.
+        if(gap>0.5 && !/\s$/.test(line) && !/^\s/.test(it.str)) line+=' ';
+      }
+      line+=it.str;
+      lastEnd=it.x+it.w;
+    });
+    return line.replace(/\s+$/,'');
+  }).filter(l=>l.trim()!=='');
+  return lines.join('\n');
 }
 
 // ══════════════════════════════════════════════════════════════════════
@@ -2485,13 +2525,13 @@ document.getElementById('fullscreen-btn').addEventListener('click',()=>{
 
 // ══════════════════════════════════════════════════════════════════════
 //  FULL-TEXT READER — shows the whole original page (byte-identical,
-//  formatting untouched) and reads one sentence at a time. The sentence
-//  currently being read is shown enlarged in a fixed panel pinned to the
-//  vertical middle of the screen, with word-by-word highlight, while the
-//  full text stays visible (dimmed) behind it. Remembers the exact
-//  sentence position per file.
+//  formatting untouched, page-by-page for PDFs) and reads one sentence at
+//  a time, human-style: the sentence currently being spoken is highlighted
+//  IN PLACE over the real text (no separate popup, no dimming), then the
+//  reader pauses briefly and moves to the next sentence. Remembers the
+//  exact sentence position per file.
 // ══════════════════════════════════════════════════════════════════════
-const R={fileName:'',rawText:'',sentences:[],wordCount:0,curSent:0,totalSents:0,sentEls:[],pageTokens:[],playing:false};
+const R={fileName:'',rawText:'',sentences:[],wordCount:0,curSent:0,totalSents:0,sentEls:[],playing:false};
 const SENT_PFX='rsent:';
 // Splits the ORIGINAL text into sentence [start,end) offset ranges, without
 // altering, trimming, or collapsing any whitespace/newlines. Splitting is
@@ -2518,6 +2558,10 @@ function splitIntoSentenceRanges(text){
   while((lm=lineRe.exec(guarded))){
     const lineStart=lm.index, lineText=lm[0];
     if(lineText.trim()==='') continue;
+    // A lone form-feed marks a PDF page break (inserted by extractPdf). It
+    // is never spoken and never highlighted — it just separates pages —
+    // so skip it here rather than turning it into a "sentence".
+    if(lineText.trim()==='\f') continue;
     const sentRe=/[^.!?।॥]*[.!?।॥]+/g;
     let sm, lastEnd=0, any=false;
     while((sm=sentRe.exec(lineText))){
@@ -2534,28 +2578,33 @@ function splitIntoSentenceRanges(text){
   if(!ranges.length && text.trim()!=='') ranges.push([0,text.length]);
   return ranges;
 }
-function tokenizeSentence(sentText){
-  const tokens=[];
-  for(const p of sentText.split(/(\s+)/)){
-    if(!p) continue;
-    if(/^\s+$/.test(p)) tokens.push({text:p,isWord:false,lang:null});
-    else tokens.push({text:p,isWord:true,lang:detectLang(p)||'en'});
-  }
-  return tokens;
-}
-// Renders the ENTIRE original text once, completely unmodified. Sentence
-// ranges are wrapped in <span class="rsent"> (used only to locate tap
-// targets); any whitespace between/around sentences (including blank
-// lines) is inserted as plain, untouched text nodes so line breaks,
-// indentation, and spacing match the source exactly.
+// Renders the ENTIRE original text once, completely unmodified — page by
+// page, line by line, exactly as laid out in the source. Sentence ranges
+// are wrapped in <span class="rsent"> (used both as tap targets AND as the
+// in-place highlight target while reading — there is no separate popup).
+// A lone form-feed (the page-break marker inserted between PDF pages) is
+// rendered as a visible divider (<hr class="rpagebreak">) instead of raw
+// whitespace, so page boundaries are clear on screen just like the
+// original document. Every other character — all whitespace, indentation,
+// and line breaks between/around sentences — is inserted as plain,
+// untouched text so the layout matches the source exactly.
 function renderFullText(){
   const content=document.getElementById('reader-content');
   const frag=document.createDocumentFragment();
   R.sentEls=[];
   const text=R.rawText;
   let cursor=0;
+  const appendPlain=(chunk)=>{
+    // Split any plain whitespace chunk on a lone form-feed so the page
+    // break can be rendered as its own divider element.
+    const parts=chunk.split('\f');
+    parts.forEach((part,i)=>{
+      if(part) frag.appendChild(document.createTextNode(part));
+      if(i<parts.length-1){ frag.appendChild(document.createElement('hr')).className='rpagebreak'; }
+    });
+  };
   R.sentences.forEach(([start,end],sIdx)=>{
-    if(start>cursor) frag.appendChild(document.createTextNode(text.slice(cursor,start)));
+    if(start>cursor) appendPlain(text.slice(cursor,start));
     const sentWrap=document.createElement('span');
     sentWrap.className='rsent';
     sentWrap.dataset.sidx=sIdx;
@@ -2564,28 +2613,21 @@ function renderFullText(){
     frag.appendChild(sentWrap);
     cursor=end;
   });
-  if(cursor<text.length) frag.appendChild(document.createTextNode(text.slice(cursor)));
+  if(cursor<text.length) appendPlain(text.slice(cursor));
   content.style.display='block'; document.getElementById('reader-upload-prompt').style.display='none';
   content.innerHTML=''; content.appendChild(frag);
 }
-// Builds the big-text "Now Reading" panel for one sentence: word-<span
-// class="rtok"> tokens for playback highlight, rendered large in the
-// fixed center overlay (the background full text stays dimmed).
-function showNowReading(sentIdx){
-  const [start,end]=R.sentences[sentIdx];
-  const sentText=R.rawText.slice(start,end);
-  const box=document.getElementById('now-reading-text');
-  box.innerHTML=''; R.pageTokens=[];
-  tokenizeSentence(sentText).forEach(tok=>{
-    if(!tok.isWord){box.appendChild(document.createTextNode(tok.text));}
-    else{const sp=document.createElement('span');sp.className='rtok';sp.textContent=tok.text;R.pageTokens.push({el:sp,text:tok.text,lang:tok.lang});box.appendChild(sp);}
-  });
-  document.getElementById('now-reading').classList.add('visible');
-  document.getElementById('reader-content-wrap').classList.add('dimmed');
+// Highlights the sentence currently being read directly in the real page
+// layout (no overlay, no dimming) — this is the ONLY visual indicator of
+// reading position, matching how a human's eyes rest on one line/sentence
+// at a time before moving to the next.
+function clearActiveSentenceHL(){
+  R.sentEls.forEach(el=>el.classList.remove('rhl-active'));
 }
-function hideNowReading(){
-  document.getElementById('now-reading').classList.remove('visible');
-  document.getElementById('reader-content-wrap').classList.remove('dimmed');
+function highlightActiveSentence(sentIdx){
+  clearActiveSentenceHL();
+  const wrap=R.sentEls[sentIdx];
+  if(wrap) wrap.classList.add('rhl-active');
 }
 function scrollSentenceIntoView(sentIdx){
   const wrap=R.sentEls[sentIdx]; if(!wrap) return;
@@ -2594,7 +2636,7 @@ function scrollSentenceIntoView(sentIdx){
 function setActiveSentence(sentIdx,save){
   sentIdx=Math.max(0,Math.min(sentIdx,R.totalSents-1));
   R.curSent=sentIdx;
-  showNowReading(sentIdx);
+  highlightActiveSentence(sentIdx);
   updatePageNav(); updateReaderProgress();
   if(save) _dset(SENT_PFX+R.fileName,sentIdx);
 }
@@ -2609,7 +2651,7 @@ function updatePageNav(){
   document.getElementById('pg-first').disabled=R.curSent===0; document.getElementById('pg-prev').disabled=R.curSent===0;
   document.getElementById('pg-next').disabled=R.curSent>=R.totalSents-1; document.getElementById('pg-last').disabled=R.curSent>=R.totalSents-1;
 }
-function navToPage(idx){const wasPlaying=R.playing;stopReaderPlay();goToSentence(idx);if(wasPlaying&&R.pageTokens.length) setTimeout(()=>playFromToken(0),60);}
+function navToPage(idx){const wasPlaying=R.playing;stopReaderPlay();goToSentence(idx);if(wasPlaying&&R.totalSents) setTimeout(()=>playFromToken(R.curSent),60);}
 document.getElementById('pg-first').addEventListener('click',()=>navToPage(0));
 document.getElementById('pg-prev').addEventListener('click',()=>navToPage(R.curSent-1));
 document.getElementById('pg-next').addEventListener('click',()=>navToPage(R.curSent+1));
@@ -2619,9 +2661,9 @@ function openReader(text,name){
   R.fileName=name||'Reader'; document.getElementById('reader-title').textContent=R.fileName;
   document.getElementById('reader-overlay').classList.add('open'); document.body.style.overflow='hidden';
   if(text&&text.trim()) loadReaderText(text);
-  else{document.getElementById('reader-upload-prompt').style.display='flex';document.getElementById('reader-content').style.display='none';document.getElementById('reader-info').textContent='No file loaded';document.getElementById('page-nav').classList.remove('visible');hideNowReading();}
+  else{document.getElementById('reader-upload-prompt').style.display='flex';document.getElementById('reader-content').style.display='none';document.getElementById('reader-info').textContent='No file loaded';document.getElementById('page-nav').classList.remove('visible');}
 }
-function closeReader(){stopReaderPlay();hideNowReading();document.getElementById('reader-overlay').classList.remove('open');document.body.style.overflow='';}
+function closeReader(){stopReaderPlay();document.getElementById('reader-overlay').classList.remove('open');document.body.style.overflow='';}
 function loadReaderText(text){
   stopReaderPlay();
   R.rawText=text;
@@ -2636,7 +2678,7 @@ function loadReaderText(text){
     const sIdx=parseInt(sentWrap.dataset.sidx,10);
     stopReaderPlay();
     setActiveSentence(sIdx,true);
-    playFromToken(0);
+    playFromToken(sIdx);
     showToast('Reading from here…');
   };
   content.addEventListener('click',content._tapHandler);
@@ -2645,37 +2687,66 @@ function loadReaderText(text){
   requestAnimationFrame(()=>scrollSentenceIntoView(savedSent));
 }
 function updateInfo(){document.getElementById('reader-info').textContent=`${R.wordCount.toLocaleString()} words · ${R.totalSents} sentence${R.totalSents!==1?'s':''} · ${R.fileName}`;}
-function buildTasks(pageTokens,startIdx){
-  const tasks=[]; let chunk=[],chunkLang=null;
-  const flush=()=>{if(!chunk.length) return;const text=filterForLang(chunk.map(t=>t.text).join(' '),chunkLang);if(text) tasks.push({text,lang:chunkLang,toks:[...chunk]});chunk=[];chunkLang=null;};
-  for(let i=startIdx;i<pageTokens.length;i++){const t=pageTokens[i];if(t.lang!==chunkLang) flush();chunkLang=t.lang;chunk.push(t);} flush(); return tasks;
+// Splits one sentence's text into same-language runs for TTS (a sentence
+// can mix scripts, e.g. an Odia line with an English term in it), while
+// keeping the whole sentence as a single highlighted unit on screen — the
+// highlight does not flicker between runs, only the spoken voice changes.
+function buildSentenceSpeechRuns(sentText){
+  const runs=[]; let chunk='',chunkLang=null;
+  const flush=()=>{if(!chunk.trim()) return;const t=filterForLang(chunk,chunkLang);if(t) runs.push({text:t,lang:chunkLang});chunk='';};
+  sentText.split(/(\s+)/).forEach(p=>{
+    if(!p) return;
+    if(/^\s+$/.test(p)){chunk+=p;return;}
+    const lang=detectLang(p)||'en';
+    if(lang!==chunkLang){flush();chunkLang=lang;}
+    chunk+=p;
+  });
+  flush();
+  return runs;
 }
-function runTasks(tasks){
-  const btn=document.getElementById('reader-play-btn'); let i=0;
-  function next(){
-    clearReaderHL(); if(!R.playing){R.playing=false;btn.textContent='▶ Play';btn.classList.remove('playing');return;}
-    if(i<tasks.length){const task=tasks[i++];task.toks.forEach(t=>t.el.classList.add('rhl'));ttsSpeak(task.text,task.lang,next);}
-    else{
-      if(R.curSent<R.totalSents-1){
-        setActiveSentence(R.curSent+1,true); scrollSentenceIntoView(R.curSent);
-        requestAnimationFrame(()=>requestAnimationFrame(()=>{
-          if(!R.playing){btn.textContent='▶ Play';btn.classList.remove('playing');return;}
-          const nextTasks=buildTasks(R.pageTokens,0);
-          if(nextTasks.length){tasks.length=0;nextTasks.forEach(t=>tasks.push(t));i=0;next();}
-          else{R.playing=false;btn.textContent='▶ Play';btn.classList.remove('playing');}
-        }));
-      }
-      else{R.playing=false;btn.textContent='▶ Play';btn.classList.remove('playing');showToast('✓ Finished reading');}
-    }
-  } next();
+// Reads the document one sentence at a time, human-style: highlight the
+// whole sentence in place in the real page layout, speak it, pause briefly
+// (a natural breath), then move to the next sentence and repeat. No word-
+// by-word highlighting and no separate popup — the highlight IS the text.
+const READER_PAUSE_MS=380;
+function speakSentence(sentIdx,onDone){
+  const [start,end]=R.sentences[sentIdx];
+  const sentText=R.rawText.slice(start,end);
+  const runs=buildSentenceSpeechRuns(sentText);
+  if(!runs.length){onDone();return;}
+  let i=0;
+  const nextRun=()=>{
+    if(!R.playing){return;}
+    if(i>=runs.length){setTimeout(()=>{if(R.playing) onDone();},READER_PAUSE_MS);return;}
+    const run=runs[i++];
+    ttsSpeak(run.text,run.lang,nextRun);
+  };
+  nextRun();
 }
-function playFromToken(tokIdx){if(!R.pageTokens.length) return;const tasks=buildTasks(R.pageTokens,tokIdx);if(!tasks.length) return;R.playing=true;const btn=document.getElementById('reader-play-btn');btn.textContent='⏸ Stop';btn.classList.add('playing');runTasks(tasks);}
-function clearReaderHL(){R.pageTokens.forEach(t=>t.el.classList.remove('rhl'));}
-function stopReaderPlay(){if(R.playing){ttsCancel();R.playing=false;}clearReaderHL();const btn=document.getElementById('reader-play-btn');btn.textContent='▶ Play';btn.classList.remove('playing');}
-document.getElementById('reader-play-btn').addEventListener('click',function(){if(R.playing){stopReaderPlay();return;}if(!R.pageTokens.length){showToast('No text loaded!');return;}playFromToken(0);});
+function runReaderPlayback(startIdx){
+  const btn=document.getElementById('reader-play-btn');
+  const step=(sentIdx)=>{
+    if(!R.playing) return;
+    if(sentIdx>=R.totalSents){R.playing=false;btn.textContent='▶ Play';btn.classList.remove('playing');clearActiveSentenceHL();showToast('✓ Finished reading');return;}
+    setActiveSentence(sentIdx,true);
+    scrollSentenceIntoView(sentIdx);
+    speakSentence(sentIdx,()=>step(sentIdx+1));
+  };
+  step(startIdx);
+}
+function playFromToken(tokIdx){
+  // tokIdx here is a sentence index (kept name for call-site compatibility).
+  if(!R.totalSents) return;
+  R.playing=true;
+  const btn=document.getElementById('reader-play-btn');
+  btn.textContent='⏸ Stop'; btn.classList.add('playing');
+  runReaderPlayback(tokIdx);
+}
+function stopReaderPlay(){if(R.playing){ttsCancel();R.playing=false;}const btn=document.getElementById('reader-play-btn');btn.textContent='▶ Play';btn.classList.remove('playing');}
+document.getElementById('reader-play-btn').addEventListener('click',function(){if(R.playing){stopReaderPlay();return;}if(!R.totalSents){showToast('No text loaded!');return;}playFromToken(R.curSent);});
 function updateReaderProgress(){const progress=R.totalSents>1?(R.curSent+1)/R.totalSents:1;document.getElementById('reader-progress').style.width=(Math.min(progress,1)*100)+'%';}
 document.getElementById('reader-close-btn').addEventListener('click',closeReader);
-document.getElementById('font-size-range').addEventListener('input',function(){document.getElementById('now-reading-text').style.fontSize=(parseInt(this.value,10)+9)+'px';document.getElementById('reader-content').style.fontSize=this.value+'px';});
+document.getElementById('font-size-range').addEventListener('input',function(){document.getElementById('reader-content').style.fontSize=this.value+'px';});
 document.getElementById('speed-range').addEventListener('input',function(){ttsRate=parseFloat(this.value);});
 document.querySelectorAll('.theme-dot').forEach(dot=>{
   dot.addEventListener('click',function(){document.querySelectorAll('.theme-dot').forEach(d=>d.classList.remove('active'));this.classList.add('active');document.body.setAttribute('data-reader-theme',this.dataset.theme);});
@@ -2697,7 +2768,7 @@ initDB();
 <!-- Crawlable footer CTA — small, unobtrusive, real anchor text with the canonical URL. -->
 <footer style="text-align:center;font-size:11px;color:#78909c;padding:6px 10px 10px;line-height:1.6;">
   <a href="https://abhayattcc.github.io/Odia-Picture-Dictionary/" style="color:#78909c;">Odia Picture Dictionary</a>
-  · Free Online Odia Picture Dictionary with English &amp; Hindi · 100% Offline · No Signup
+  · Free English Hindi Odia Picture Dictionary · 100% Offline
 </footer>
 </body>
 </html>
